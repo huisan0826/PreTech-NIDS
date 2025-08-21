@@ -1,0 +1,439 @@
+/* Global CSS Reset and Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* Typography */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  
+  /* Color Scheme */
+  color-scheme: light;
+  color: #1f2937;
+  background-color: #f8f9fa;
+
+  /* Font Rendering */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  
+  /* Responsive Font Sizes */
+  --font-size-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --font-size-sm: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+  --font-size-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --font-size-lg: clamp(1.125rem, 1rem + 0.625vw, 1.25rem);
+  --font-size-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --font-size-2xl: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+  --font-size-3xl: clamp(1.875rem, 1.6rem + 1.375vw, 2.5rem);
+  --font-size-4xl: clamp(2.25rem, 1.9rem + 1.75vw, 3rem);
+  
+  /* Spacing */
+  --spacing-xs: clamp(0.25rem, 0.2rem + 0.25vw, 0.375rem);
+  --spacing-sm: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
+  --spacing-md: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  --spacing-lg: clamp(1.5rem, 1.2rem + 1.5vw, 2.25rem);
+  --spacing-xl: clamp(2rem, 1.6rem + 2vw, 3rem);
+  --spacing-2xl: clamp(2.5rem, 2rem + 2.5vw, 4rem);
+  
+  /* Layout */
+  --max-width-sm: 640px;
+  --max-width-md: 768px;
+  --max-width-lg: 1024px;
+  --max-width-xl: 1280px;
+  --max-width-2xl: 1536px;
+}
+
+/* HTML and Body */
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  color: #1f2937;
+  font-family: inherit;
+  line-height: inherit;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2937;
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Links */
+a {
+  color: #3b82f6;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #2563eb;
+}
+
+a:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Form Elements */
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Images and Media */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: 100%;
+}
+
+/* Lists */
+ul, ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Main App Container */
+#app {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Utility Classes */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.focus-visible:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Responsive Design Breakpoints */
+
+/* Mobile devices (320px to 767px) */
+@media (max-width: 767px) {
+  :root {
+    font-size: 14px;
+  }
+  
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Increase touch targets on mobile */
+  button, 
+  input[type="button"], 
+  input[type="submit"], 
+  input[type="reset"],
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better text input on mobile */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Improve scrolling */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Small mobile devices (320px to 479px) */
+@media (max-width: 479px) {
+  :root {
+    font-size: 13px;
+  }
+  
+  /* Reduce padding on very small screens */
+  input, select, textarea {
+    padding: 0.375rem;
+  }
+}
+
+/* Tablet portrait (480px to 767px) */
+@media (min-width: 480px) and (max-width: 767px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
+/* Tablet landscape (768px to 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+  :root {
+    font-size: 15px;
+  }
+}
+
+/* Desktop (992px to 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+  :root {
+    font-size: 16px;
+  }
+}
+
+/* Large desktop (1200px and up) */
+@media (min-width: 1200px) {
+  :root {
+    font-size: 16px;
+  }
+}
+
+/* Ultra-wide screens (1600px and up) */
+@media (min-width: 1600px) {
+  :root {
+    font-size: 17px;
+  }
+}
+
+/* High DPI screens */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  body {
+    font-weight: 400;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Reduce vertical padding in landscape mode on short screens */
+  :root {
+    --spacing-md: clamp(0.5rem, 0.4rem + 0.5vw, 1rem);
+    --spacing-lg: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  }
+}
+
+/* Print styles */
+@media print {
+  :root {
+    font-size: 12pt;
+    color-scheme: light;
+  }
+  
+  body {
+    background: white;
+    color: black;
+  }
+  
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a, a:visited {
+    text-decoration: underline;
+    color: black !important;
+  }
+  
+  button {
+    display: none;
+  }
+  
+  /* Page breaks */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+  }
+  
+  p, li {
+    break-inside: avoid;
+  }
+}
+
+/* Accessibility improvements */
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  :root {
+    color: #000;
+    background-color: #fff;
+  }
+  
+  button, input, select, textarea {
+    border: 2px solid #000;
+  }
+  
+  a {
+    color: #0000ff;
+    text-decoration: underline;
+  }
+  
+  a:visited {
+    color: #800080;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Dark mode support (future enhancement) */
+@media (prefers-color-scheme: dark) {
+  /* Keeping light theme for now for consistency */
+  /* Future dark mode implementation would go here */
+}
+
+/* Focus management for keyboard navigation */
+.js-focus-visible :focus:not(.focus-visible) {
+  outline: none;
+}
+
+/* Custom selection color */
+::selection {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #1f2937;
+}
+
+::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #1f2937;
+}
+
+/* Loading states */
+.loading {
+  cursor: wait;
+}
+
+.loading * {
+  pointer-events: none;
+}
+
+/* Error states */
+.error {
+  color: #dc2626;
+}
+
+.error-border {
+  border-color: #dc2626 !important;
+}
+
+/* Success states */
+.success {
+  color: #16a34a;
+}
+
+.success-border {
+  border-color: #16a34a !important;
+}
+
+/* Warning states */
+.warning {
+  color: #d97706;
+}
+
+.warning-border {
+  border-color: #d97706 !important;
+}

@@ -1,0 +1,599 @@
+<script>
+  import { writable } from 'svelte/store';
+  import { onMount } from 'svelte';
+  import { currentUser, hasPermission } from './stores/auth.js';
+  import { push, link } from 'svelte-spa-router';
+
+  let stats = writable({
+    totalAlerts: 0,
+    recentAttacks: 0,
+    systemStatus: 'Online',
+    lastUpdate: new Date().toLocaleString()
+  });
+  
+  let recentAlerts = writable([]);
+  let loading = writable(false);
+  let error = writable(null);
+
+  onMount(async () => {
+    await loadDashboardData();
+  });
+
+  async function loadDashboardData() {
+    try {
+      loading.set(true);
+    error.set(null);
+      
+      // Load real-time data from backend
+      const [alertsResponse, statsResponse] = await Promise.allSettled([
+        fetch('http://localhost:8000/api/alerts/recent', {
+          credentials: 'include'
+        }),
+        fetch('http://localhost:8000/api/dashboard/stats', {
+          credentials: 'include'
+        })
+      ]);
+      
+      // Process alerts data
+      if (alertsResponse.status === 'fulfilled' && alertsResponse.value.ok) {
+        const alertsData = await alertsResponse.value.json();
+        recentAlerts.set(alertsData.alerts || []);
+      } else {
+        // Fallback to empty alerts if API fails
+        recentAlerts.set([]);
+      }
+      
+      // Process stats data
+      if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
+        const statsData = await statsResponse.value.json();
+        stats.set({
+          totalAlerts: statsData.total_alerts || 0,
+          recentAttacks: statsData.recent_attacks || 0,
+          systemStatus: statsData.system_status || 'Online',
+          lastUpdate: new Date().toLocaleString()
+        });
+      } else {
+        // Fallback to default stats if API fails
+        stats.set({
+          totalAlerts: 0,
+          recentAttacks: 0,
+          systemStatus: 'Online',
+          lastUpdate: new Date().toLocaleString()
+        });
+      }
+      
+    } catch (e) {
+      console.error('Failed to load dashboard data:', e);
+      error.set('Failed to load dashboard data');
+      
+      // Set default values if there's an error
+      stats.set({
+        totalAlerts: 0,
+        recentAttacks: 0,
+        systemStatus: 'Online',
+        lastUpdate: new Date().toLocaleString()
+      });
+      recentAlerts.set([]);
+    } finally {
+      loading.set(false);
+    }
+  }
+
+  function refreshData() {
+    loadDashboardData();
+  }
+
+  // Function to navigate to different pages
+  function navigateTo(path) {
+    push(path);
+  }
+</script>
+
+<div class="page-container">
+  <div class="page-header">
+    <h1 class="page-title">🏠 Dashboard</h1>
+    <p class="page-description">Welcome to PreTech-NIDS - Your Network Security Command Center</p>
+    <button class="refresh-button" on:click={refreshData} disabled={$loading}>
+              {#if $loading}
+                <span class="spinner"></span>
+              {:else}
+        🔄
+              {/if}
+      Refresh
+          </button>
+        </div>
+
+  {#if $error}
+    <div class="error-banner">
+      ⚠️ {$error}
+    </div>
+  {/if}
+
+  <div class="dashboard-grid">
+    <!-- System Status Cards -->
+    <div class="status-cards">
+      <div class="status-card">
+        <div class="status-icon">🚨</div>
+        <div class="status-content">
+          <h3 class="status-title">Total Alerts</h3>
+          <p class="status-value">{$stats.totalAlerts}</p>
+          <p class="status-subtitle">All time</p>
+      </div>
+    </div>
+
+      <div class="status-card">
+        <div class="status-icon">⚡</div>
+        <div class="status-content">
+          <h3 class="status-title">Recent Attacks</h3>
+          <p class="status-value">{$stats.recentAttacks}</p>
+          <p class="status-subtitle">Last 24 hours</p>
+        </div>
+            </div>
+
+      <div class="status-card">
+        <div class="status-icon">🟢</div>
+        <div class="status-content">
+          <h3 class="status-title">System Status</h3>
+          <p class="status-value">{$stats.systemStatus}</p>
+          <p class="status-subtitle">All systems operational</p>
+            </div>
+          </div>
+
+      <div class="status-card">
+        <div class="status-icon">🕒</div>
+        <div class="status-content">
+          <h3 class="status-title">Last Update</h3>
+          <p class="status-value">{$stats.lastUpdate}</p>
+          <p class="status-subtitle">Real-time monitoring</p>
+            </div>
+          </div>
+        </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <h2 class="section-title">Quick Actions</h2>
+      <div class="action-buttons">
+        {#if $currentUser && hasPermission('manual_testing')}
+          <button class="action-button" on:click={() => navigateTo('/manual-testing')}>
+            <span class="action-icon">🧪</span>
+            <span class="action-text">Manual Testing</span>
+          </button>
+        {/if}
+        
+        {#if $currentUser && hasPermission('real_time_detection')}
+          <button class="action-button" on:click={() => navigateTo('/realtime')}>
+            <span class="action-icon">🔄</span>
+            <span class="action-text">Real-time Detection</span>
+          </button>
+        {/if}
+        
+        {#if $currentUser && hasPermission('pcap_analysis')}
+          <button class="action-button" on:click={() => navigateTo('/pcap')}>
+            <span class="action-icon">📁</span>
+            <span class="action-text">PCAP Analysis</span>
+          </button>
+        {/if}
+        
+        {#if $currentUser && hasPermission('view_alerts')}
+          <button class="action-button" on:click={() => navigateTo('/alerts')}>
+            <span class="action-icon">🚨</span>
+            <span class="action-text">View Alerts</span>
+          </button>
+        {/if}
+        
+        {#if $currentUser && hasPermission('view_reports')}
+          <button class="action-button" on:click={() => navigateTo('/reports')}>
+            <span class="action-icon">📋</span>
+            <span class="action-text">View Reports</span>
+          </button>
+        {/if}
+
+        {#if $currentUser && hasPermission('view_reports')}
+          <button class="action-button" on:click={() => navigateTo('/attackmap')}>
+            <span class="action-icon">🗺️</span>
+            <span class="action-text">Attack Map</span>
+          </button>
+        {/if}
+
+        {#if $currentUser && hasPermission('user_management')}
+          <button class="action-button" on:click={() => navigateTo('/users')}>
+            <span class="action-icon">👥</span>
+            <span class="action-text">User Management</span>
+          </button>
+    {/if}
+      </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="recent-alerts">
+      <h2 class="section-title">Recent Alerts</h2>
+      {#if $recentAlerts.length > 0}
+        <div class="alerts-list">
+          {#each $recentAlerts.slice(0, 5) as alert}
+            <div class="alert-item">
+              <div class="alert-header">
+                <span class="alert-type {alert.severity}">{alert.type}</span>
+                <span class="alert-time">{new Date(alert.timestamp).toLocaleString()}</span>
+              </div>
+              <p class="alert-message">{alert.message}</p>
+            </div>
+          {/each}
+        </div>
+        <div class="view-all-alerts">
+          <a href="/alerts" use:link class="view-all-link">View All Alerts →</a>
+        </div>
+      {:else}
+        <div class="no-alerts">
+          <div class="no-alerts-icon">✅</div>
+          <p>No recent alerts - Your network is secure!</p>
+          <p class="no-alerts-subtitle">The system is actively monitoring for any suspicious activity</p>
+        </div>
+      {/if}
+    </div>
+
+    <!-- System Overview -->
+    <div class="system-overview">
+      <h2 class="section-title">System Overview</h2>
+      <div class="overview-content">
+        <p>PreTech-NIDS is actively monitoring your network for security threats.</p>
+        <ul class="overview-list">
+          <li>✅ Real-time traffic analysis</li>
+          <li>✅ Machine learning detection</li>
+          <li>✅ Alert management system</li>
+          <li>✅ Comprehensive reporting</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .page-container {
+    padding: 2rem;
+    max-width: 100%;
+    margin: 0;
+    width: 100%;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .page-description {
+    color: #6b7280;
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .refresh-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+
+  .refresh-button:hover:not(:disabled) {
+    background-color: #2563eb;
+  }
+
+  .refresh-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ffffff40;
+    border-left: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .error-banner {
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border: 1px solid #fecaca;
+  }
+
+  .dashboard-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: 1fr;
+  }
+
+  /* Status Cards */
+  .status-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .status-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .status-icon {
+    font-size: 2rem;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f4f6;
+    border-radius: 12px;
+  }
+
+  .status-content {
+    flex: 1;
+  }
+
+  .status-title {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0 0 0.5rem 0;
+    font-weight: 500;
+  }
+
+  .status-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .status-subtitle {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-top: 0.25rem;
+  }
+
+  /* Quick Actions */
+  .quick-actions {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 1.5rem 0;
+  }
+
+  .action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .action-button {
+    display: flex;
+      flex-direction: column;
+    align-items: center;
+      gap: 0.75rem;
+    padding: 1.5rem;
+    background-color: #f8fafc;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #374151;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  .action-button:hover {
+    background-color: #f1f5f9;
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  }
+
+  .action-button:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .action-icon {
+      font-size: 2rem;
+    }
+
+  .action-text {
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  /* Recent Alerts */
+  .recent-alerts {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+  }
+
+  .alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .alert-item {
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background-color: #f9fafb;
+  }
+
+  .alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .alert-type {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+      font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .alert-type.high {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+
+  .alert-type.medium {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  .alert-type.low {
+    background-color: #d1fae5;
+    color: #065f46;
+  }
+
+  .alert-time {
+      font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  .alert-message {
+    margin: 0;
+    color: #374151;
+    font-size: 0.875rem;
+  }
+
+  .view-all-alerts {
+    margin-top: 1rem;
+    text-align: center;
+  }
+
+  .view-all-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .view-all-link:hover {
+    text-decoration: underline;
+  }
+
+  .no-alerts {
+    text-align: center;
+    color: #6b7280;
+    padding: 2rem;
+  }
+
+  .no-alerts-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .no-alerts-subtitle {
+    font-size: 0.875rem;
+    color: #9ca3af;
+  }
+
+  /* System Overview */
+  .system-overview {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+  }
+
+  .overview-content p {
+    color: #6b7280;
+    margin: 0 0 1rem 0;
+    line-height: 1.6;
+  }
+
+  .overview-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .overview-list li {
+    padding: 0.5rem 0;
+    color: #374151;
+    font-size: 0.875rem;
+  }
+
+  .overview-note {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .overview-note p {
+      font-size: 0.75rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .page-container {
+      padding: 0.75rem;
+    }
+
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .status-cards { grid-template-columns: 1fr; }
+    .dashboard-grid { gap: 1rem; }
+    .status-card { padding: 1rem; }
+    .status-icon { width: 48px; height: 48px; font-size: 1.5rem; }
+    .status-value { font-size: 1.25rem; }
+    .quick-actions { padding: 1rem; }
+    .action-buttons { grid-template-columns: 1fr; }
+    .recent-alerts, .system-overview { padding: 1rem; }
+  }
+</style>
