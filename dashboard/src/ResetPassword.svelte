@@ -15,6 +15,14 @@
   let error = writable(null);
   let success = writable(null);
 
+  // Password requirements checklist for new password
+  // English-only labels per requirement
+  $: rp_len = newPassword.length >= 8;
+  $: rp_upper = /[A-Z]/.test(newPassword);
+  $: rp_lower = /[a-z]/.test(newPassword);
+  $: rp_digit = /[0-9]/.test(newPassword);
+  $: rp_special = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?`~]/.test(newPassword);
+
   // Optional: prefill email from query param
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -166,7 +174,14 @@
             {showNewPassword ? '🙈' : '👁️'}
           </button>
           </div>
-          <div class="form-hint">Password must be at least 6 characters long</div>
+          <div class="form-hint">Password must satisfy all requirements below:</div>
+          <ul class="password-reqs">
+            <li class={rp_len ? 'ok' : ''}>At least 8 characters</li>
+            <li class={rp_upper ? 'ok' : ''}>At least 1 uppercase letter (A-Z)</li>
+            <li class={rp_lower ? 'ok' : ''}>At least 1 lowercase letter (a-z)</li>
+            <li class={rp_digit ? 'ok' : ''}>At least 1 number (0-9)</li>
+            <li class={rp_special ? 'ok' : ''}>At least 1 special character (!@#$%^&* etc.)</li>
+          </ul>
         </div>
 
         <div class="form-group">
@@ -329,6 +344,16 @@
     color: #6b7280;
     margin-top: 0.25rem;
   }
+  .password-reqs {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+    color: #6b7280;
+    font-size: 0.8rem;
+    list-style: disc;
+    list-style-position: outside;
+  }
+  .password-reqs li { margin: 0.125rem 0; }
+  .password-reqs li.ok { color: #059669; }
 
   .error-message {
     background-color: #fee2e2;

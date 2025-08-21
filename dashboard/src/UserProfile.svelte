@@ -22,6 +22,14 @@
   let showNew = false;
   let showConfirm = false;
 
+  // Password requirements checklist (for new password)
+  // English-only labels as requested
+  $: np_len = newPassword.length >= 8;
+  $: np_upper = /[A-Z]/.test(newPassword);
+  $: np_lower = /[a-z]/.test(newPassword);
+  $: np_digit = /[0-9]/.test(newPassword);
+  $: np_special = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?`~]/.test(newPassword);
+
   // Form section states
   let showPasswordSection = false;
   let profileLoading = false;
@@ -528,7 +536,14 @@
                   {showNew ? '🙈' : '👁️'}
                 </button>
               </div>
-              <div class="form-hint">Password must be at least 8 characters, include upper/lowercase, number and special character</div>
+              <div class="form-hint">Password must satisfy all requirements below:</div>
+              <ul class="password-reqs">
+                <li class={np_len ? 'ok' : ''}>At least 8 characters</li>
+                <li class={np_upper ? 'ok' : ''}>At least 1 uppercase letter (A-Z)</li>
+                <li class={np_lower ? 'ok' : ''}>At least 1 lowercase letter (a-z)</li>
+                <li class={np_digit ? 'ok' : ''}>At least 1 number (0-9)</li>
+                <li class={np_special ? 'ok' : ''}>At least 1 special character (!@#$%^&* etc.)</li>
+              </ul>
             </div>
 
             <div class="form-group">
@@ -780,6 +795,16 @@
     color: #6b7280;
     margin-top: 0.25rem;
   }
+  .password-reqs {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+    color: #6b7280;
+    font-size: 0.8rem;
+    list-style: disc;
+    list-style-position: outside;
+  }
+  .password-reqs li { margin: 0.125rem 0; }
+  .password-reqs li.ok { color: #059669; }
 
   .form-actions {
     display: flex;

@@ -18,6 +18,14 @@
   // Initialize known fields to satisfy linter/type inference
   let fieldErrors = writable({ username: null, email: null, password: null, confirmPassword: null });
 
+  // Password requirements (live checklist state)
+  // All labels and comments are in English as requested
+  $: pw_len = password.length >= 8;
+  $: pw_upper = /[A-Z]/.test(password);
+  $: pw_lower = /[a-z]/.test(password);
+  $: pw_digit = /[0-9]/.test(password);
+  $: pw_special = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?`~]/.test(password);
+
   function validateUsername(value) {
     if (!value) return 'Username is required';
     if (value.length < 3 || value.length > 20) return 'Username must be between 3 and 20 characters';
@@ -190,6 +198,13 @@
           {showPassword ? '🙈' : '👁️'}
         </button>
         </div>
+        <ul class="password-reqs">
+          <li class={pw_len ? 'ok' : ''}>At least 8 characters</li>
+          <li class={pw_upper ? 'ok' : ''}>At least 1 uppercase letter (A-Z)</li>
+          <li class={pw_lower ? 'ok' : ''}>At least 1 lowercase letter (a-z)</li>
+          <li class={pw_digit ? 'ok' : ''}>At least 1 number (0-9)</li>
+          <li class={pw_special ? 'ok' : ''}>At least 1 special character (!@#$%^&* etc.)</li>
+        </ul>
         {#if $fieldErrors.password}
           <span class="field-error">{$fieldErrors.password}</span>
         {/if}
@@ -366,6 +381,22 @@
     color: #ef4444;
     font-size: 0.75rem;
     margin-top: 0.25rem;
+  }
+
+  /* Password requirements checklist */
+  .password-reqs {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+    color: #6b7280;
+    font-size: 0.8rem;
+    list-style: disc;
+    list-style-position: outside;
+  }
+  .password-reqs li {
+    margin: 0.125rem 0;
+  }
+  .password-reqs li.ok {
+    color: #059669; /* green when satisfied */
   }
 
   .error-message {
