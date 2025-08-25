@@ -1,0 +1,242 @@
+@startuml PreTech-NIDS Use Case Diagram
+
+' Force left to right direction and layout
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+' Scale for better layout
+scale max 2000 width
+
+!define RECTANGLE class
+
+' Left side - Primary Actors (force to left)
+actor "Security Analyst" as Analyst #lightblue
+actor "System Administrator" as Admin #lightgreen
+actor "Report Viewer" as Viewer #lightyellow
+
+' Force left side actors to stay together
+Analyst -[hidden,thickness=0]left- Admin
+Admin -[hidden,thickness=0]left- Viewer
+
+' Main system boundary with all use cases
+rectangle "PreTech-NIDS System" {
+    ' Authentication Management
+    package "Authentication Management" {
+        usecase "Login" as UC_Login #white
+        usecase "Logout" as UC_Logout #white
+        usecase "Register" as UC_Register #white
+        usecase "Email Verification" as UC_EmailVerif #white
+        usecase "Password Reset" as UC_PwdReset #white
+        usecase "OTP Verification" as UC_OTPVerif #white
+    }
+
+    ' Threat Detection
+    package "Threat Detection" {
+        usecase "Manual Testing" as UC_ManualTest #white
+        usecase "Real-time Detection" as UC_RealTime #white
+        usecase "Model Selection" as UC_ModelSelect #white
+        usecase "Feature Input" as UC_FeatureInput #white
+        usecase "Result Analysis" as UC_ResultAnalysis #white
+        usecase "Interface Selection" as UC_InterfaceSelect #white
+        usecase "Traffic Capture" as UC_TrafficCapture #white
+        usecase "Threat Alerting" as UC_ThreatAlert #white
+    }
+
+    ' PCAP Analysis
+    package "PCAP Analysis" {
+        usecase "Upload PCAP" as UC_UploadPCAP #white
+        usecase "Analyze Traffic" as UC_AnalyzeTraffic #white
+        usecase "File Validation" as UC_FileValidation #white
+        usecase "Feature Extraction" as UC_FeatureExtract #white
+        usecase "Protocol Analysis" as UC_ProtocolAnalysis #white
+        usecase "Threat Classification" as UC_ThreatClass #white
+    }
+
+    ' Alert Management
+    package "Alert Management" {
+        usecase "View Alerts" as UC_ViewAlerts #white
+        usecase "Manage Alert Rules" as UC_ManageRules #white
+        usecase "Acknowledge Alert" as UC_AckAlert #white
+        usecase "Resolve Alert" as UC_ResolveAlert #white
+        usecase "Create Rule" as UC_CreateRule #white
+        usecase "Edit Rule" as UC_EditRule #white
+    }
+
+    ' Reporting System
+    package "Reporting System" {
+        usecase "Generate Report" as UC_GenerateReport #white
+        usecase "View Reports" as UC_ViewReports #white
+        usecase "Export Data" as UC_ExportData #white
+        usecase "Data Filtering" as UC_DataFilter #white
+        usecase "Search Reports" as UC_SearchReports #white
+        usecase "CSV Export" as UC_CSVExport #white
+        usecase "JSON Export" as UC_JSONExport #white
+    }
+
+    ' Geographic Analysis
+    package "Geographic Analysis" {
+        usecase "Map Attack Locations" as UC_MapLocations #white
+        usecase "View Threat Map" as UC_ViewThreatMap #white
+        usecase "IP Geolocation" as UC_IPGeo #white
+        usecase "Attack Clustering" as UC_AttackCluster #white
+        usecase "Risk Assessment" as UC_RiskAssessment #white
+    }
+
+    ' User Management
+    package "User Management" {
+        usecase "Manage Users" as UC_ManageUsers #white
+        usecase "Profile Management" as UC_ProfileMgmt #white
+        usecase "Create User" as UC_CreateUser #white
+        usecase "Edit User" as UC_EditUser #white
+        usecase "Delete User" as UC_DeleteUser #white
+        usecase "Role Assignment" as UC_RoleAssignment #white
+        usecase "Update Profile" as UC_UpdateProfile #white
+        usecase "Change Password" as UC_ChangePwd #white
+    }
+
+    ' System Monitoring
+    package "System Monitoring" {
+        usecase "Dashboard Overview" as UC_Dashboard #white
+        usecase "Network Interface Management" as UC_NetInterface #white
+        usecase "Statistics Display" as UC_StatsDisplay #white
+        usecase "Real-time Status" as UC_RealTimeStatus #white
+        usecase "System Health" as UC_SystemHealth #white
+    }
+}
+
+' Right side - Secondary & Off-Stage Actors (force to right)
+actor "Email Service" as Email #pink
+actor "Geolocation Service" as Geo #orange
+actor "ML Models" as ML #purple
+actor "Network Traffic" as Network #gray
+actor "MongoDB Database" as DB #brown
+
+' CRITICAL: Force right side actors to stay on the right using strong layout hints
+Email -[hidden,thickness=0]right- Geo
+Geo -[hidden,thickness=0]right- ML
+ML -[hidden,thickness=0]right- Network
+Network -[hidden,thickness=0]right- DB
+
+' Force separation between system and right side actors using multiple hints
+UC_ExportData -[hidden,thickness=0]right- Email
+UC_MapLocations -[hidden,thickness=0]right- Geo
+UC_ManualTest -[hidden,thickness=0]right- ML
+UC_RealTime -[hidden,thickness=0]right- Network
+UC_ViewReports -[hidden,thickness=0]right- DB
+
+' Primary Actor relationships (Left side) to use cases
+Analyst --> UC_ManualTest : <<uses>>
+Analyst --> UC_RealTime : <<uses>>
+Analyst --> UC_UploadPCAP : <<uses>>
+Analyst --> UC_AnalyzeTraffic : <<uses>>
+Analyst --> UC_ViewAlerts : <<uses>>
+Analyst --> UC_ManageRules : <<uses>>
+Analyst --> UC_ViewReports : <<uses>>
+Analyst --> UC_ExportData : <<uses>>
+Analyst --> UC_MapLocations : <<uses>>
+Analyst --> UC_ViewThreatMap : <<uses>>
+Analyst --> UC_ProfileMgmt : <<uses>>
+
+Admin --> UC_ManageUsers : <<uses>>
+Admin --> UC_ManageRules : <<uses>>
+Admin --> UC_DeleteUser : <<uses>>
+Admin --> UC_RoleAssignment : <<uses>>
+Admin --> UC_SystemHealth : <<uses>>
+Admin --> UC_NetInterface : <<uses>>
+
+Viewer --> UC_ViewReports : <<uses>>
+Viewer --> UC_ViewAlerts : <<uses>>
+Viewer --> UC_Dashboard : <<uses>>
+
+' Secondary & Off-Stage Actor relationships (Right side) to use cases
+Email --> UC_EmailVerif : <<provides>>
+Email --> UC_PwdReset : <<provides>>
+Email --> UC_OTPVerif : <<provides>>
+
+Geo --> UC_IPGeo : <<provides>>
+Geo --> UC_MapLocations : <<provides>>
+Geo --> UC_ViewThreatMap : <<provides>>
+
+ML --> UC_ManualTest : <<supports>>
+ML --> UC_RealTime : <<supports>>
+ML --> UC_AnalyzeTraffic : <<supports>>
+ML --> UC_UploadPCAP : <<supports>>
+
+Network --> UC_RealTime : <<provides>>
+Network --> UC_TrafficCapture : <<provides>>
+Network --> UC_NetInterface : <<provides>>
+
+DB --> UC_ManageUsers : <<stores>>
+DB --> UC_ViewReports : <<stores>>
+DB --> UC_ViewAlerts : <<stores>>
+DB --> UC_MapLocations : <<stores>>
+
+' Include relationships - Clear dashed lines
+UC_Login ..> UC_EmailVerif : <<include>>
+UC_Login ..> UC_ResultAnalysis : <<include>>
+UC_Register ..> UC_EmailVerif : <<include>>
+UC_Register ..> UC_OTPVerif : <<include>>
+UC_ManualTest ..> UC_ModelSelect : <<include>>
+UC_ManualTest ..> UC_FeatureInput : <<include>>
+UC_ManualTest ..> UC_ResultAnalysis : <<include>>
+UC_RealTime ..> UC_InterfaceSelect : <<include>>
+UC_RealTime ..> UC_TrafficCapture : <<include>>
+UC_RealTime ..> UC_ThreatAlert : <<include>>
+UC_UploadPCAP ..> UC_FileValidation : <<include>>
+UC_UploadPCAP ..> UC_FeatureExtract : <<include>>
+UC_AnalyzeTraffic ..> UC_ProtocolAnalysis : <<include>>
+UC_AnalyzeTraffic ..> UC_ThreatClass : <<include>>
+UC_ViewAlerts ..> UC_DataFilter : <<include>>
+UC_ManageRules ..> UC_CreateRule : <<include>>
+UC_ManageRules ..> UC_EditRule : <<include>>
+UC_GenerateReport ..> UC_DataFilter : <<include>>
+UC_ViewReports ..> UC_SearchReports : <<include>>
+UC_ExportData ..> UC_CSVExport : <<include>>
+UC_ExportData ..> UC_JSONExport : <<include>>
+UC_MapLocations ..> UC_IPGeo : <<include>>
+UC_MapLocations ..> UC_AttackCluster : <<include>>
+UC_ViewThreatMap ..> UC_RiskAssessment : <<include>>
+UC_ManageUsers ..> UC_CreateUser : <<include>>
+UC_ManageUsers ..> UC_EditUser : <<include>>
+UC_ManageUsers ..> UC_DeleteUser : <<include>>
+UC_ProfileMgmt ..> UC_UpdateProfile : <<include>>
+UC_ProfileMgmt ..> UC_ChangePwd : <<include>>
+UC_Dashboard ..> UC_StatsDisplay : <<include>>
+UC_Dashboard ..> UC_RealTimeStatus : <<include>>
+UC_NetInterface ..> UC_SystemHealth : <<include>>
+
+' Extend relationships - Different style dashed lines
+UC_Logout ..> UC_Login : <<extend>>
+UC_PwdReset ..> UC_EmailVerif : <<extend>>
+UC_ManualTest ..> UC_ThreatAlert : <<extend>>
+UC_RealTime ..> UC_SystemHealth : <<extend>>
+UC_UploadPCAP ..> UC_ThreatAlert : <<extend>>
+UC_AnalyzeTraffic ..> UC_ThreatAlert : <<extend>>
+UC_ViewAlerts ..> UC_AckAlert : <<extend>>
+UC_ViewAlerts ..> UC_ResolveAlert : <<extend>>
+UC_GenerateReport ..> UC_ExportData : <<extend>>
+UC_MapLocations ..> UC_ViewThreatMap : <<extend>>
+UC_ManageUsers ..> UC_ProfileMgmt : <<extend>>
+UC_Dashboard ..> UC_NetInterface : <<extend>>
+
+' Legend for permissions and relationships
+legend right
+|=Permission|=Description|
+|<#lightblue>|Primary Actors (use system)|
+|<#pink>|Secondary Actors (provide services)|
+|<#gray>|Off-Stage Actors (provide data)|
+|<#white>|Use Cases (system functions)|
+|--|Include relationship|
+|..>|Extend relationship|
+|-->|Association relationship|
+endlegend
+
+' System integration notes (simplified)
+note bottom of UC_Login : Integrates with Email Service
+note bottom of UC_MapLocations : Integrates with Geolocation Service
+note bottom of UC_ManualTest : Integrates with ML Models
+note bottom of UC_RealTime : Integrates with Network Traffic
+note bottom of UC_ViewReports : Integrates with MongoDB
+
+@enduml
