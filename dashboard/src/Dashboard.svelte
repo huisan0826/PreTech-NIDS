@@ -1,10 +1,11 @@
 <script>
   import { writable } from 'svelte/store';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { currentUser, hasPermission } from './stores/auth.js';
   import { push, link } from 'svelte-spa-router';
 
   let stats = writable({
+    totalAttacks: 0,
     totalAlerts: 0,
     recentAttacks: 0,
     systemStatus: 'Online',
@@ -14,47 +15,58 @@
   let recentAlerts = writable([]);
   let loading = writable(false);
   let error = writable(null);
-
-  onMount(async () => {
-    await loadDashboardData();
-  });
+  
+  // Auto-refresh configuration
+  let autoRefreshEnabled = true;
+  let autoRefreshInterval = 5000; // 5 seconds
+  let autoRefreshTimer = null;
+  let lastRefreshTime = new Date();
 
   async function loadDashboardData() {
     try {
       loading.set(true);
-    error.set(null);
+      error.set(null);
       
-      // Load real-time data from backend
-      const [alertsResponse, statsResponse] = await Promise.allSettled([
-        fetch('http://localhost:8000/api/alerts/recent', {
-          credentials: 'include'
-        }),
-        fetch('http://localhost:8000/api/dashboard/stats', {
-          credentials: 'include'
-        })
-      ]);
-      
-      // Process alerts data
-      if (alertsResponse.status === 'fulfilled' && alertsResponse.value.ok) {
-        const alertsData = await alertsResponse.value.json();
-        recentAlerts.set(alertsData.alerts || []);
-      } else {
-        // Fallback to empty alerts if API fails
-        recentAlerts.set([]);
+      // Load recent alerts (latest 5) - same as AlertSystem
+      const alertsResponse = await fetch('http://localhost:8000/api/alerts/alerts?page=1&per_page=5');
+      if (alertsResponse.ok) {
+        const alertsData = await alertsResponse.json();
+        if (alertsData.success) {
+          recentAlerts.set(alertsData.alerts || []);
+        }
       }
       
-      // Process stats data
-      if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
-        const statsData = await statsResponse.value.json();
-        stats.set({
-          totalAlerts: statsData.total_alerts || 0,
-          recentAttacks: statsData.recent_attacks || 0,
-          systemStatus: statsData.system_status || 'Online',
-          lastUpdate: new Date().toLocaleString()
-        });
+      // Load statistics - same API and structure as AlertSystem
+      const statsResponse = await fetch('http://localhost:8000/api/alerts/statistics');
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        
+        if (statsData.success) {
+          const statistics = statsData.statistics;
+          
+          // Use the same field names as AlertSystem
+          stats.set({
+            totalAttacks: statistics.total_alerts_24h || 0,        // Total alerts in last 24h
+            totalAlerts: statistics.total_alerts_24h || 0,        // Same as above for consistency
+            recentAttacks: statistics.by_level?.critical || 0,    // Critical alerts as recent attacks
+            systemStatus: 'Online',                               // Default system status
+            lastUpdate: new Date().toLocaleString()
+          });
+          
+          console.log('📊 Dashboard stats loaded (matching AlertSystem):', {
+            totalAttacks: statistics.total_alerts_24h,
+            totalAlerts: statistics.total_alerts_24h,
+            recentAttacks: statistics.by_level?.critical,
+            byLevel: statistics.by_level,
+            rawStatistics: statistics
+          });
+        } else {
+          console.error('API returned success: false');
+        }
       } else {
         // Fallback to default stats if API fails
         stats.set({
+          totalAttacks: 0,
           totalAlerts: 0,
           recentAttacks: 0,
           systemStatus: 'Online',
@@ -68,6 +80,7 @@
       
       // Set default values if there's an error
       stats.set({
+        totalAttacks: 0,
         totalAlerts: 0,
         recentAttacks: 0,
         systemStatus: 'Online',
@@ -82,26 +95,115 @@
   function refreshData() {
     loadDashboardData();
   }
-
+  
+  // Start auto-refresh timer
+  function startAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+    }
+    
+    if (autoRefreshEnabled) {
+      autoRefreshTimer = setInterval(async () => {
+        console.log('🔄 Auto-refreshing dashboard data...');
+        await loadDashboardData();
+        lastRefreshTime = new Date();
+      }, autoRefreshInterval);
+      
+      console.log(`✅ Auto-refresh started (${autoRefreshInterval/1000}s interval)`);
+    }
+  }
+  
+  // Stop auto-refresh timer
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+      console.log('⏹️ Auto-refresh stopped');
+    }
+  }
+  
+  // Toggle auto-refresh
+  function toggleAutoRefresh() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    if (autoRefreshEnabled) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+  }
+  
+    // Change refresh interval
+  function changeRefreshInterval(newInterval) {
+    autoRefreshInterval = newInterval;
+    if (autoRefreshEnabled) {
+      startAutoRefresh(); // Restart with new interval
+    }
+  }
+  
+  // Handle interval change event
+  function handleIntervalChange(event) {
+    const value = event.target.value;
+    if (value) {
+      changeRefreshInterval(parseInt(value));
+    }
+  }
+  
   // Function to navigate to different pages
   function navigateTo(path) {
     push(path);
   }
+  
+  // Lifecycle management
+  onMount(async () => {
+    console.log('🚀 Dashboard mounted, starting auto-refresh...');
+    await loadDashboardData();
+    startAutoRefresh();
+  });
+  
+  onDestroy(() => {
+    console.log('🛑 Dashboard unmounting, stopping auto-refresh...');
+    stopAutoRefresh();
+  });
 </script>
 
 <div class="page-container">
   <div class="page-header">
-    <h1 class="page-title">🏠 Dashboard</h1>
-    <p class="page-description">Welcome to PreTech-NIDS - Your Network Security Command Center</p>
-    <button class="refresh-button" on:click={refreshData} disabled={$loading}>
-              {#if $loading}
-                <span class="spinner"></span>
-              {:else}
-        🔄
-              {/if}
-      Refresh
-          </button>
-        </div>
+    <div class="header-content">
+      <h1 class="page-title">🏠 Dashboard</h1>
+      <p class="page-description">Welcome to PreTech-NIDS - Your Network Security Command Center</p>
+    </div>
+    
+    <div class="refresh-controls">
+      <button class="refresh-button" on:click={refreshData} disabled={$loading}>
+        {#if $loading}
+          <span class="spinner"></span>
+        {:else}
+          🔄
+        {/if}
+        Refresh
+      </button>
+      
+      <button class="auto-refresh-toggle {autoRefreshEnabled ? 'enabled' : 'disabled'}" 
+              on:click={toggleAutoRefresh} title="Toggle auto-refresh">
+        {#if autoRefreshEnabled}
+          ⏸️ Auto-refresh: ON
+        {:else}
+          ▶️ Auto-refresh: OFF
+        {/if}
+      </button>
+      
+      <select class="refresh-interval" on:change={handleIntervalChange}>
+        <option value={3000}>3s</option>
+        <option value={5000} selected>5s</option>
+        <option value={10000}>10s</option>
+        <option value={30000}>30s</option>
+      </select>
+      
+      <span class="last-refresh">
+        Last: {lastRefreshTime.toLocaleTimeString()}
+      </span>
+    </div>
+  </div>
 
   {#if $error}
     <div class="error-banner">
@@ -116,38 +218,38 @@
         <div class="status-icon">🚨</div>
         <div class="status-content">
           <h3 class="status-title">Total Alerts</h3>
-          <p class="status-value">{$stats.totalAlerts}</p>
-          <p class="status-subtitle">All time</p>
+          <p class="status-value">{$stats.totalAttacks || 0}</p>
+          <p class="status-subtitle">Last 24 hours</p>
+        </div>
       </div>
-    </div>
 
       <div class="status-card">
         <div class="status-icon">⚡</div>
         <div class="status-content">
-          <h3 class="status-title">Recent Attacks</h3>
-          <p class="status-value">{$stats.recentAttacks}</p>
+          <h3 class="status-title">Critical Alerts</h3>
+          <p class="status-value">{$stats.recentAttacks || 0}</p>
           <p class="status-subtitle">Last 24 hours</p>
         </div>
-            </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-icon">📊</div>
+        <div class="status-content">
+          <h3 class="status-title">All Alerts</h3>
+          <p class="status-value">{$stats.totalAlerts || 0}</p>
+          <p class="status-subtitle">Last 24 hours</p>
+        </div>
+      </div>
 
       <div class="status-card">
         <div class="status-icon">🟢</div>
         <div class="status-content">
           <h3 class="status-title">System Status</h3>
-          <p class="status-value">{$stats.systemStatus}</p>
+          <p class="status-value">{$stats.systemStatus || 'Online'}</p>
           <p class="status-subtitle">All systems operational</p>
-            </div>
-          </div>
-
-      <div class="status-card">
-        <div class="status-icon">🕒</div>
-        <div class="status-content">
-          <h3 class="status-title">Last Update</h3>
-          <p class="status-value">{$stats.lastUpdate}</p>
-          <p class="status-subtitle">Real-time monitoring</p>
-            </div>
-          </div>
         </div>
+      </div>
+    </div>
 
     <!-- Quick Actions -->
     <div class="quick-actions">
@@ -206,7 +308,7 @@
 
     <!-- Recent Alerts -->
     <div class="recent-alerts">
-      <h2 class="section-title">Recent Alerts</h2>
+      <h2 class="section-title">Recent Alerts ({$recentAlerts.length} latest)</h2>
       {#if $recentAlerts.length > 0}
         <div class="alerts-list">
           {#each $recentAlerts.slice(0, 5) as alert}
@@ -264,19 +366,36 @@
     gap: 1rem;
   }
 
+  .header-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-grow: 1;
+  }
+
   .page-title {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: bold;
     color: #1f2937;
-    margin: 0;
+    margin: 0 0 0.5rem 0;
   }
 
   .page-description {
     color: #6b7280;
     margin: 0;
     font-size: 1.1rem;
+    line-height: 1.5;
   }
 
+  .refresh-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
   .refresh-button {
     display: flex;
     align-items: center;
@@ -293,6 +412,49 @@
 
   .refresh-button:hover:not(:disabled) {
     background-color: #2563eb;
+  }
+  
+  .auto-refresh-toggle {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .auto-refresh-toggle.disabled {
+    background-color: #b91c1c;
+  }
+  
+  .auto-refresh-toggle:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .refresh-interval {
+    background: white;
+    border: 1px solid #d1d5db;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .refresh-interval:hover {
+    border-color: #3b82f6;
+  }
+  
+  .last-refresh {
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 500;
   }
 
   .refresh-button:disabled {
@@ -579,12 +741,40 @@
   /* Responsive Design */
   @media (max-width: 768px) {
     .page-container {
-      padding: 0.75rem;
+      padding: 1rem;
     }
 
     .page-header {
       flex-direction: column;
-      align-items: flex-start;
+      align-items: center;
+      text-align: center;
+      gap: 1.5rem;
+    }
+
+    .header-content {
+      align-items: center;
+      text-align: center;
+      order: 1;
+    }
+
+    .page-title {
+      font-size: 2rem;
+    }
+
+    .page-description {
+      font-size: 1rem;
+    }
+
+    .refresh-controls {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      order: 2;
+    }
+
+    .refresh-button, .auto-refresh-toggle, .refresh-interval {
+      width: 100%;
+      justify-content: center;
     }
 
     .status-cards { grid-template-columns: 1fr; }

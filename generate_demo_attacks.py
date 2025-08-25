@@ -12,6 +12,7 @@ MODELS = ['kitsune', 'autoencoder', 'lstm', 'cnn', 'rf']
 
 def generate_attack_features():
     # Generate a set of features likely to be classified as Attack
+    # Dataset has 77 numeric features (79 total columns - 1 label column - 1 non-numeric column)
     return [random.uniform(8, 15) for _ in range(77)]
 
 def send_attack_to_predict(model=None):

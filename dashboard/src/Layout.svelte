@@ -12,6 +12,12 @@
   let authCheckInterval;
   let navItems = [];
   
+  // WebSocket management
+  let ws = null;
+  let wsConnected = false;
+  let wsReconnectAttempts = 0;
+  const maxReconnectAttempts = 5;
+  
   // Dynamic navigation items based on user permissions
   $: {
     // Ensure we always have at least the basic navigation when authenticated
@@ -79,6 +85,77 @@
     isSidebarCollapsed.update(collapsed => !collapsed);
   }
   
+  // WebSocket functions
+  function connectWebSocket() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
+    
+    try {
+      const wsUrl = window.location.hostname === "localhost"
+        ? "ws://localhost:8000/api/alerts/ws"
+        : `wss://${window.location.hostname}/api/alerts/ws`;
+      
+      console.log('Connecting to WebSocket:', wsUrl);
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected successfully');
+        wsConnected = true;
+        wsReconnectAttempts = 0;
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'alert') {
+            console.log('🚨 Received alert via WebSocket:', message.data);
+            // Dispatch custom event to notify AlertNotification component
+            const alertEvent = new CustomEvent('newAlert', {
+              detail: message.data,
+              bubbles: true
+            });
+            document.dispatchEvent(alertEvent);
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
+        }
+      };
+      
+              ws.onclose = (event) => {
+          console.log('WebSocket closed:', event.code, event.reason);
+          wsConnected = false;
+          
+          // Auto-reconnection logic
+          if (wsReconnectAttempts < maxReconnectAttempts) {
+            wsReconnectAttempts++;
+            console.log(`Attempting to reconnect WebSocket (${wsReconnectAttempts}/${maxReconnectAttempts})...`);
+            setTimeout(connectWebSocket, 5000);
+          } else {
+            console.log('Max WebSocket reconnection attempts reached');
+          }
+        };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        wsConnected = false;
+      };
+      
+    } catch (e) {
+      console.error('Failed to connect WebSocket:', e);
+    }
+  }
+  
+  function disconnectWebSocket() {
+    if (ws) {
+      console.log('Disconnecting WebSocket');
+      ws.close();
+      ws = null;
+      wsConnected = false;
+    }
+  }
+  
   // Authentication functions
   async function checkAuth() {
     try {
@@ -90,9 +167,21 @@
       if (response.data.authenticated) {
         setAuthenticatedUser(response.data.user);
         console.log('Auth check: User authenticated', response.data.user);
+        
+        // Connect WebSocket if user has permission and WebSocket is not connected
+        if (hasPermission('view_alerts') && !wsConnected) {
+          console.log('User authenticated, connecting WebSocket...');
+          connectWebSocket();
+        }
       } else {
         resetAuth();
         console.log('Auth check: User not authenticated');
+        
+        // Disconnect WebSocket if user is not authenticated
+        if (wsConnected) {
+          console.log('User not authenticated, disconnecting WebSocket...');
+          disconnectWebSocket();
+        }
       }
     } catch (e) {
       console.error('Auth check error:', e);
@@ -122,7 +211,7 @@
     }
   }
   
-  // Lifecycle
+    // Lifecycle
   onMount(() => {
     checkAuth();
     
@@ -130,7 +219,7 @@
       if ($location === '/login' || $location === '/register') {
         checkAuth();
       }
-    }, 1000); 
+    }, 5000);
     
     return () => {
       if (authCheckInterval) {
@@ -139,10 +228,24 @@
     };
   });
   
+  // Monitor authentication state changes and automatically manage WebSocket connections
+  $: if ($isAuthenticated && hasPermission('view_alerts') && !wsConnected) {
+    console.log('User authenticated with alerts permission, connecting WebSocket...');
+    connectWebSocket();
+  }
+  
+  $: if (!$isAuthenticated && wsConnected) {
+    console.log('User not authenticated, disconnecting WebSocket...');
+    disconnectWebSocket();
+  }
+  
   onDestroy(() => {
     if (authCheckInterval) {
       clearInterval(authCheckInterval);
     }
+    
+    // Clean up WebSocket connection
+    disconnectWebSocket();
   });
   
   // Reactive statements for redirection

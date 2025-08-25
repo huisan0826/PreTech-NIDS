@@ -31,6 +31,10 @@ df = df.select_dtypes(include=[np.number])
 df.replace([np.inf, -np.inf], np.nan, inplace=True)
 df.dropna(inplace=True)
 
+# Debug: Check actual feature count
+print(f"🔍 Actual numeric features count: {len(df.columns)}")
+print(f"🔍 Features: {df.columns.tolist()[:5]} ... {df.columns.tolist()[-5:]}")
+
 # --- Limit sample size ---
 df = df.sample(n=min(len(df), MAX_SAMPLES), random_state=RANDOM_SEED)
 

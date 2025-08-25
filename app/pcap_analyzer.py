@@ -4,7 +4,8 @@ import tempfile
 import hashlib
 import time
 from typing import List, Dict, Optional, Tuple, Any
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 import numpy as np
 from scapy.all import rdpcap, IP, TCP, UDP, ICMP, ARP, Ether
 from scapy.layers.inet import Ether as EtherLayer
@@ -388,7 +389,7 @@ class PcapAnalyzer:
                 'total_packets': total_packets,
                 'file_size': os.path.getsize(file_path),
                 'file_hash': self.calculate_file_hash(file_path),
-                'analysis_timestamp': datetime.utcnow().isoformat(),
+                'analysis_timestamp': get_beijing_time_iso(),
                 'packet_details': [],
                 'protocol_distribution': defaultdict(int),
                 'port_analysis': defaultdict(int),
@@ -1126,7 +1127,7 @@ async def export_report_as_pdf(report: Dict) -> Response:
                     # The OS will clean it up later
             
             # Return PDF response
-            filename = f"pcap_analysis_{report['filename'].replace('.pcap', '')}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
+            filename = f"pcap_analysis_{report['filename'].replace('.pcap', '')}_{get_beijing_time().strftime('%Y%m%d_%H%M%S')}.pdf"
             
             return Response(
                 content=pdf_content,
@@ -1146,7 +1147,7 @@ def export_report_as_json(report: Dict) -> Response:
         import json
         from datetime import datetime
         
-        filename = f"pcap_analysis_{report['filename'].replace('.pcap', '')}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"pcap_analysis_{report['filename'].replace('.pcap', '')}_{get_beijing_time().strftime('%Y%m%d_%H%M%S')}.json"
         
         return Response(
             content=json.dumps(report, indent=2, default=str),
@@ -1209,7 +1210,7 @@ def export_report_as_csv(report: Dict) -> Response:
         for i, recommendation in enumerate(report['recommendations'], 1):
             writer.writerow([f"{i}. {recommendation}"])
         
-        filename = f"pcap_analysis_{report['filename'].replace('.pcap', '')}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"pcap_analysis_{report['filename'].replace('.pcap', '')}_{get_beijing_time().strftime('%Y%m%d_%H%M%S')}.csv"
         
         return Response(
             content=output.getvalue(),
@@ -1226,7 +1227,7 @@ def generate_pcap_report(analysis_results: Dict) -> Dict[str, Any]:
     
     report = {
         'report_type': 'pcap_analysis',
-        'generated_at': datetime.utcnow().isoformat(),
+        'generated_at': get_beijing_time_iso(),
         'filename': analysis_results['filename'],
         'file_hash': analysis_results['file_hash'],
         'analysis_summary': {

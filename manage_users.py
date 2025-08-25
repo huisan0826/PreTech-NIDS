@@ -5,7 +5,8 @@ This script allows you to manage user accounts in the system.
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 from pymongo import MongoClient
 from passlib.context import CryptContext
 
@@ -82,7 +83,7 @@ def create_user():
             "username": username,
             "email": email,
             "password": hashed_password,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": get_beijing_time_iso(),
             "is_active": True,
             "is_admin": is_admin,
             "role": "administrator" if is_admin else "user"

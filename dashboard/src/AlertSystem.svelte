@@ -53,7 +53,9 @@
   let showSettingsModal = false;
   let showRulesModal = false;
   let playingSound = false;
-
+  
+  // Event listener cleanup
+  let globalCloseAllListener = null;
 
 
   // Audio context for alert sounds
@@ -214,50 +216,125 @@
   // fix onMount async problem
   let refreshInterval = null;
   
-  onMount(() => {
-    (async () => {
-      if (!hasPermission('view_alerts')) {
-        error.set('Permission denied: view_alerts required');
-        loading.set(false);
-        return;
-      }
+  // Auto-refresh functionality
+  let autoRefreshEnabled = true; // Default to enabled like Dashboard
+  let autoRefreshInterval = 5000; // 5 seconds default
+  let autoRefreshTimer = null;
+  let lastRefreshTime = new Date();
+  
+  // Auto-refresh functions
+  function startAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+    }
+    
+    if (autoRefreshEnabled) {
+      autoRefreshTimer = setInterval(async () => {
+        console.log('🔄 Auto-refreshing AlertSystem data...');
+        await loadAlerts(currentPage);
+        await loadStatistics();
+        lastRefreshTime = new Date();
+      }, autoRefreshInterval);
+      
+      console.log(`✅ Auto-refresh started (${autoRefreshInterval/1000}s interval)`);
+    }
+  }
+  
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+      console.log('⏹️ Auto-refresh stopped');
+    }
+  }
+  
+  function toggleAutoRefresh() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    if (autoRefreshEnabled) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+    console.log('🔄 Auto-refresh toggled:', autoRefreshEnabled);
+  }
+  
+  function changeRefreshInterval(newInterval) {
+    autoRefreshInterval = newInterval;
+    if (autoRefreshEnabled) {
+      startAutoRefresh(); // Restart with new interval
+    }
+    console.log('⏱️ Refresh interval changed to:', newInterval);
+  }
+  
+  function handleIntervalChange(event) {
+    const value = event.target.value;
+    if (value) {
+      changeRefreshInterval(parseInt(value));
+    }
+  }
+  
+  onMount(async () => {
+    if (!hasPermission('view_alerts')) {
+      return;
+    }
 
-      await initializeAudio();
-      await requestNotificationPermission();
-      await loadAlerts(1);
-      await loadStatistics();
-      await loadAlertRules();
-      connectWebSocket();
-
-      // Set loading to false after all initialization is complete
-      loading.set(false);
-
-      // Auto-refresh data every 30 seconds
-      refreshInterval = setInterval(() => {
-        loadStatistics();
-      }, 30000);
-    })();
-
+    console.log('🚀 AlertSystem mounted, starting auto-refresh...');
+    
+    // Load initial data
+    await loadAlerts();
+    await loadStatistics();
+    await loadAlertRules();
+    
+    // Connect WebSocket
+    connectWebSocket();
+    
     // Add keyboard event listener
     document.addEventListener('keydown', handleKeydown);
+    
+    // Listen for global close all alerts event from Alert Manager
+    const handleGlobalCloseAll = () => {
+      console.log('🎯 AlertSystem received global close all alerts event');
+      closeAlertModal();
+    };
+    
+    document.addEventListener('closeAllAlerts', handleGlobalCloseAll);
+    
+    // Store cleanup function for onDestroy
+    globalCloseAllListener = handleGlobalCloseAll;
+    
+    // Start auto-refresh immediately (like Dashboard)
+    startAutoRefresh();
   });
 
   onDestroy(() => {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-    }
+    console.log('🛑 AlertSystem unmounting, stopping auto-refresh...');
+    
+    // Cleanup WebSocket
     if (ws) {
       ws.close();
     }
+    
+    // Cleanup reconnect timer
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
     }
+    
+    // Cleanup auto-refresh timer
+    stopAutoRefresh();
+    
+    // Cleanup audio context
     if (audioContext) {
       audioContext.close();
     }
     
-    // Remove keyboard event listener
+    // Cleanup event listeners
     document.removeEventListener('keydown', handleKeydown);
+    
+    // Cleanup global event listener
+    if (globalCloseAllListener) {
+      document.removeEventListener('closeAllAlerts', globalCloseAllListener);
+      globalCloseAllListener = null;
+    }
   });
 
   // fix webkitAudioContext type error
@@ -617,67 +694,6 @@
     showNewAlertModal = true;
   }
 
-
-
-  async function closeAllAlerts() {
-    if (!shouldEnableCloseAllButton) {
-      error.set('No active threats or unacknowledged alerts to close');
-      setTimeout(() => error.set(null), 3000);
-      return;
-    }
-    
-    if (!confirm('Are you sure you want to close all alerts? This will acknowledge all unacknowledged alerts.')) return;
-    if (!checkAuthentication()) return;
-    
-    try {
-      // Get all unacknowledged alerts
-      const unacknowledgedAlerts = $alerts.filter(alert => !alert.acknowledged);
-      
-      if (unacknowledgedAlerts.length === 0) {
-        success.set('No alerts need to be acknowledged');
-        setTimeout(() => success.set(null), 3000);
-        return;
-      }
-      
-      const promises = unacknowledgedAlerts.map(alert => 
-        axios.post(`http://localhost:8000/api/alerts/${alert.id}/acknowledge`, {}, {
-          withCredentials: true
-        })
-      );
-      
-      await Promise.all(promises);
-      
-      // Update local state
-      alerts.update(current => 
-        current.map(alert => ({ ...alert, acknowledged: true }))
-      );
-      
-      success.set(`Successfully closed all ${unacknowledgedAlerts.length} alerts`);
-      setTimeout(() => success.set(null), 3000);
-    } catch (e) {
-      console.error('Close all alerts failed:', e);
-      
-      // Handle different error types
-      if (e.response?.status === 401) {
-        error.set('Authentication required. Please log in to close alerts.');
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-      } else if (e.response?.status === 404) {
-        error.set('Some alerts not found. They may have been deleted or already processed.');
-      } else if (e.response?.status === 403) {
-        error.set('Permission denied. You do not have permission to close alerts.');
-      } else if (e.response?.status === 500) {
-        error.set('Server error. Please try again later.');
-      } else if (e.code === 'NETWORK_ERROR' || e.code === 'ERR_NETWORK') {
-        error.set('Network error. Please check your connection and try again.');
-      } else {
-        error.set(`Close all alerts failed: ${e.response?.data?.detail || e.message || 'Unknown error'}`);
-      }
-    }
-  }
-
   function getAlertLevelColor(level) {
     const colors = {
       'critical': 'alert-critical',
@@ -718,7 +734,6 @@
 
   $: hasActiveThreats = activeThreats.length > 0;
   $: hasUnacknowledgedAlerts = $alerts.some(alert => !alert.acknowledged);
-  $: shouldEnableCloseAllButton = hasActiveThreats || hasUnacknowledgedAlerts;
 </script>
 
 <div class="alert-system-container">
@@ -727,46 +742,58 @@
     <p class="alert-description">Monitor and manage security alerts in real-time</p>
     
     <div class="alert-controls">
-      <div class="connection-status">
-        <span class="status-indicator {$connected ? 'connected' : 'disconnected'}"></span>
-        <span class="status-text">{$connected ? 'Connected' : 'Disconnected'}</span>
-      </div>
-      
-      <div class="auth-status">
-        <span class="status-indicator {$isAuthenticated ? 'connected' : 'disconnected'}"></span>
-        <span class="status-text">{$isAuthenticated ? 'Authenticated' : 'Not Logged In'}</span>
-      </div>
-      
-      <button class="settings-button" on:click={() => showSettingsModal = true}>
-        ⚙️ Settings
-      </button>
-      
-      {#if hasPermission('alert_management')}
-        <button class="rules-button" on:click={() => showRulesModal = true}>
-          📋 Rules
+      <div class="main-controls">
+        <div class="connection-status">
+          <span class="status-indicator {$connected ? 'connected' : 'disconnected'}"></span>
+          <span class="status-text">{$connected ? 'Connected' : 'Disconnected'}</span>
+        </div>
+        
+        <div class="auth-status">
+          <span class="status-indicator {$isAuthenticated ? 'connected' : 'disconnected'}"></span>
+          <span class="status-text">{$isAuthenticated ? 'Authenticated' : 'Not Logged In'}</span>
+        </div>
+        
+        <button class="settings-button" on:click={() => showSettingsModal = true}>
+          ⚙️ Settings
         </button>
-      {/if}
+        
+        {#if hasPermission('alert_management')}
+          <button class="rules-button" on:click={() => showRulesModal = true}>
+            📋 Rules
+          </button>
+        {/if}
+        
+        <button class="refresh-button" on:click={() => loadAlerts(1)}>
+          🔄 Refresh
+        </button>
+      </div>
       
-      <button class="refresh-button" on:click={() => loadAlerts(1)}>
-        🔄 Refresh
-      </button>
-      
-      <button 
-        class="close-all-button" 
-        on:click={closeAllAlerts} 
-        title={shouldEnableCloseAllButton 
-          ? "Close all unacknowledged alerts (Press ESC to close any open modals)" 
-          : "No active threats or unacknowledged alerts to close"
-        }
-        disabled={!shouldEnableCloseAllButton}
-        class:disabled={!shouldEnableCloseAllButton}
-      >
-        {shouldEnableCloseAllButton 
-          ? `🚫 Close All Alerts (${$alerts.filter(a => !a.acknowledged).length} unacknowledged)`
-          : '🚫 Close All Alerts (No active threats)'
-        }
-      </button>
-    </div>
+      <!-- Auto-refresh controls -->
+      <div class="auto-refresh-controls">
+        <button class="auto-refresh-toggle {autoRefreshEnabled ? 'enabled' : 'disabled'}" 
+                on:click={toggleAutoRefresh}
+                title="Toggle auto-refresh">
+          {#if autoRefreshEnabled}
+            ⏸️ Auto-refresh: ON
+          {:else}
+            ▶️ Auto-refresh: OFF
+          {/if}
+        </button>
+        
+        <select class="refresh-interval-select" 
+                value={autoRefreshInterval}
+                on:change={handleIntervalChange}>
+          <option value={3000}>3s</option>
+          <option value={5000}>5s</option>
+          <option value={10000}>10s</option>
+          <option value={30000}>30s</option>
+        </select>
+        
+        <span class="last-refresh-time">
+          Last: {lastRefreshTime.toLocaleTimeString()}
+        </span>
+      </div>
+     </div>
   </div>
 
   {#if $error}
@@ -785,13 +812,6 @@
 
   <!-- Alert Statistics Dashboard -->
   <div class="statistics-section">
-          {#if hasActiveThreats}
-        <div class="active-threats-warning">
-          <span class="warning-icon">🚨</span>
-          <span class="warning-text">Active threats detected ({activeThreats.length} threats) - Close All Alerts button is available</span>
-        </div>
-      {/if}
-    
     <div class="stats-grid">
       <div class="stat-card total">
         <div class="stat-icon">📊</div>
@@ -1265,6 +1285,13 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
 
+  .main-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
   .connection-status {
     display: flex;
     align-items: center;
@@ -1317,44 +1344,84 @@
   .settings-button:hover, .rules-button:hover, .refresh-button:hover {
     background-color: #4b5563;
   }
+  
+  /* Auto-refresh controls styling */
+  .auto-refresh-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: 1rem;
+    padding-left: 1rem;
+    border-left: 1px solid #e5e7eb;
+  }
+  
+  .auto-refresh-toggle {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  
+  .auto-refresh-toggle:hover {
+    background-color: #059669;
+    transform: translateY(-1px);
+  }
+  
+  .auto-refresh-toggle.enabled {
+    background-color: #10b981;
+  }
+  
+  .auto-refresh-toggle.enabled:hover {
+    background-color: #059669;
+  }
+  
+  .auto-refresh-toggle.disabled {
+    background-color: #dc2626;
+  }
+  
+  .auto-refresh-toggle.disabled:hover {
+    background-color: #b91c1c;
+  }
+  
+  .refresh-interval-select {
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+  }
+  
+  .refresh-interval-select:hover {
+    border-color: #9ca3af;
+  }
+  
+  .refresh-interval-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+  
+  .last-refresh-time {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-style: italic;
+    white-space: nowrap;
+  }
 
   .statistics-section {
     margin-bottom: 2rem;
   }
 
-  .active-threats-warning {
-    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-    border: 2px solid #ef4444;
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    animation: pulse 2s infinite;
-  }
 
-  .warning-icon {
-    font-size: 1.5rem;
-    animation: bounce 1s infinite;
-  }
-
-  .warning-text {
-    color: #991b1b;
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
-  }
-
-  @keyframes bounce {
-    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-    40% { transform: translateY(-3px); }
-    60% { transform: translateY(-1px); }
-  }
 
   .stats-grid {
     display: grid;
@@ -1714,47 +1781,7 @@
     color: #374151;
   }
 
-  /* Bulk operations styles */
-  .close-all-button {
-    background-color: #ef4444;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    position: relative;
-    z-index: 2000;
-    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
-  }
 
-  .close-all-button:hover:not(:disabled) {
-    background-color: #dc2626;
-    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
-    transform: translateY(-1px);
-  }
-
-  .close-all-button:hover:not(:disabled) {
-    background-color: #dc2626;
-  }
-
-  .close-all-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: #9ca3af;
-    box-shadow: none;
-    transform: none;
-  }
-
-  .close-all-button.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: #9ca3af;
-    box-shadow: none;
-    transform: none;
-  }
 
 
 
@@ -2010,6 +2037,62 @@
       flex-direction: column;
       gap: 1rem;
     }
+    
+    /* Mobile: Main controls (status + buttons) in one row */
+    .main-controls {
+      display: flex;
+      flex-direction: row;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    /* Mobile: Settings, Rules, Refresh buttons in same row */
+    .settings-button, .rules-button, .refresh-button {
+      flex: 1;
+      min-width: 120px;
+      max-width: 150px;
+    }
+    
+    /* Mobile: Status indicators smaller on mobile */
+    .connection-status, .auth-status {
+      font-size: 0.8rem;
+      min-width: 100px;
+    }
+    
+    .auto-refresh-controls {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: none;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      display: flex;
+      flex-direction: row;
+      gap: 0.5rem;
+    }
+    
+    /* Mobile: Auto-refresh controls in same row */
+    .auto-refresh-toggle {
+      flex: 1;
+      min-width: 120px;
+      max-width: 150px;
+    }
+    
+    .refresh-interval-select {
+      flex: 1;
+      min-width: 80px;
+      max-width: 100px;
+    }
+    
+    .last-refresh-time {
+      flex: 1;
+      min-width: 120px;
+      max-width: 150px;
+      text-align: center;
+    }
 
     .stats-grid {
       grid-template-columns: repeat(2, 1fr);
@@ -2069,6 +2152,55 @@
 
     .stat-value {
       font-size: 1.5rem;
+    }
+    
+    /* Very small screens: Stack auto-refresh controls vertically */
+    .auto-refresh-controls {
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .auto-refresh-toggle,
+    .refresh-interval-select,
+    .last-refresh-time {
+      width: 100%;
+      max-width: 200px;
+      min-width: 0;
+      flex: none;
+    }
+    
+    .auto-refresh-toggle {
+      padding: 0.4rem 0.5rem;
+    }
+    
+    .refresh-interval-select {
+      padding: 0.4rem;
+    }
+    
+    .last-refresh-time {
+      font-size: 0.7rem;
+    }
+    
+    /* Very small screens: Stack main controls vertically */
+    .main-controls {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .settings-button, .rules-button, .refresh-button {
+      width: 100%;
+      max-width: 200px;
+      min-width: 0;
+      flex: none;
+    }
+    
+    .connection-status, .auth-status {
+      width: 100%;
+      max-width: 200px;
+      justify-content: center;
     }
 
     .alert-actions {

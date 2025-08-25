@@ -2,7 +2,8 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso, timedelta
 from typing import Dict, List, Optional, Set, Any
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -268,7 +269,7 @@ class AlertManager:
             ),
         ]
         for rule in default_rules:
-            rule.created_at = datetime.utcnow().isoformat()
+            rule.created_at = get_beijing_time_iso()
             rule.updated_at = rule.created_at
             self.alert_rules[rule.id] = rule
             alert_rules_collection.insert_one(asdict(rule))
@@ -302,7 +303,10 @@ class AlertManager:
     
     async def broadcast_alert(self, alert: Alert):
         """Broadcast alert to all connected clients"""
+        logger.info(f"📡 Broadcasting alert: {alert.title} to {len(self.active_connections)} connected clients")
+        
         if not self.active_connections:
+            logger.warning("❌ No WebSocket connections available for alert broadcast")
             return
         
         alert_data = asdict(alert)
@@ -311,17 +315,26 @@ class AlertManager:
             "data": alert_data
         }
         
+        message_json = json.dumps(message)
+        logger.debug(f"   Alert message: {message_json[:200]}...")
+        
         disconnected = set()
+        sent_count = 0
         for websocket in self.active_connections:
             try:
-                await websocket.send_text(json.dumps(message))
+                await websocket.send_text(message_json)
+                sent_count += 1
+                logger.debug(f"   ✅ Alert sent to client {id(websocket)}")
             except Exception as e:
-                logger.warning(f"Failed to send alert to client: {e}")
+                logger.warning(f"   ❌ Failed to send alert to client {id(websocket)}: {e}")
                 disconnected.add(websocket)
         
         # Remove disconnected clients
         for websocket in disconnected:
             self.active_connections.discard(websocket)
+            logger.info(f"   🗑️ Removed disconnected client {id(websocket)}")
+        
+        logger.info(f"   📤 Alert broadcast complete: {sent_count} clients notified, {len(disconnected)} clients disconnected")
     
     def process_detection_result(self, detection_data: Dict):
         """Process detection result and generate alerts if needed"""
@@ -332,36 +345,90 @@ class AlertManager:
             model = result.get('model', 'Unknown')
             prediction = result.get('prediction', 'Normal')
             attack_type = detection_data.get('attack_type') or result.get('attack_type') or result.get('Label')
+            
+            # Debug: Log the prediction value
+            print(f"🔍 Alert Debug - Original prediction: '{prediction}' (length: {len(prediction) if prediction else 0})")
+            print(f"🔍 Alert Debug - Prediction type: {type(prediction)}")
+            print(f"🔍 Alert Debug - Full result: {result}")
+            
             # Extract meta info if available
             source_ip = detection_data.get('src_ip') or self._extract_source_ip(detection_data)
             destination_ip = detection_data.get('dst_ip') or detection_data.get('destination_ip')
             target_port = detection_data.get('dst_port') or detection_data.get('target_port') or self._extract_target_port(features)
             protocol = detection_data.get('protocol')
+            
+            # Calculate confidence for alert level determination (not for filtering)
             confidence = self._calculate_confidence(result)
-            # Confidence filter: only alert if confidence >= 0.99
-            if confidence < 0.99:
-                return
-            # Port Scan rule check (even if not attack)
-            if prediction not in ['Attack', 1]:
+            
+            # CRITICAL FIX: Remove artificial confidence filtering!
+            # If model predicts Attack, we should ALWAYS generate alert
+            # The model's prediction is the authority, not our arbitrary thresholds
+            
+            # Check if this is an attack detection
+            is_attack = prediction in ['Attack', 1]
+            
+            if is_attack:
+                # This is an attack - generate alert immediately
+                logger.info(f"🚨 ATTACK DETECTED by {model}: {prediction} (confidence: {confidence:.3f})")
+                logger.info(f"   Source IP: {source_ip}, Target Port: {target_port}, Protocol: {protocol}")
+                
+                # Update counters
+                if source_ip:
+                    self.ip_alert_counts[source_ip] += 1
+                    logger.info(f"   Updated IP alert count for {source_ip}: {self.ip_alert_counts[source_ip]}")
+                if target_port:
+                    self.port_alert_counts[target_port] += 1
+                    logger.info(f"   Updated port alert count for {target_port}: {self.port_alert_counts[target_port]}")
+                
+                # Generate alert for each matching rule
+                rules_checked = 0
+                alerts_generated = 0
+                for rule in self.alert_rules.values():
+                    if not rule.enabled:
+                        logger.debug(f"   Rule {rule.id} is disabled, skipping")
+                        continue
+                    
+                    rules_checked += 1
+                    logger.info(f"   Checking rule: {rule.id} - {rule.name}")
+                    
+                    if self._check_rule_conditions(rule, detection_data, result, features):
+                        logger.info(f"   ✅ Rule {rule.id} conditions met, creating alert...")
+                        alert = self._create_alert(
+                            rule, detection_data, result, source_ip, destination_ip, target_port, protocol, confidence, attack_type
+                        )
+                        # Use create_task instead of asyncio.run to avoid event loop conflicts
+                        try:
+                            import asyncio
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                # Create task in existing loop
+                                loop.create_task(self._process_alert(alert))
+                            else:
+                                # Run in new loop if none exists
+                                asyncio.run(self._process_alert(alert))
+                        except Exception as e:
+                            logger.error(f"   ❌ Failed to process alert: {e}")
+                            # Fallback: process alert synchronously
+                            self._process_alert_sync(alert)
+                        
+                        alerts_generated += 1
+                        logger.info(f"   ✅ Alert generated: {alert.title} [{alert.level}]")
+                    else:
+                        logger.warning(f"   ❌ Rule {rule.id} conditions not met for attack detection")
+                
+                logger.info(f"   Summary: {rules_checked} rules checked, {alerts_generated} alerts generated")
+            else:
+                # Not an attack, but check for port scan behavior
                 self._check_port_scan_rule(detection_data, features, source_ip, destination_ip, protocol)
-                return
-            if source_ip:
-                self.ip_alert_counts[source_ip] += 1
-            if target_port:
-                self.port_alert_counts[target_port] += 1
-            if source_ip and target_port:
-                self.ip_port_history[source_ip].append((target_port, datetime.utcnow()))
-                self._check_port_scan_rule(detection_data, features, source_ip, destination_ip, protocol)
-            for rule in self.alert_rules.values():
-                if not rule.enabled:
-                    continue
-                if self._check_rule_conditions(rule, detection_data, result, features):
-                    alert = self._create_alert(
-                        rule, detection_data, result, source_ip, destination_ip, target_port, protocol, confidence, attack_type
-                    )
-                    asyncio.run(self._process_alert(alert))
+                
+                # Update port history for non-attack traffic
+                if source_ip and target_port:
+                    self.ip_port_history[source_ip].append((target_port, get_beijing_time()))
+                    
         except Exception as e:
             logger.error(f"Error processing detection result: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _check_port_scan_rule(self, detection_data: Dict, features: List, source_ip: Optional[str] = None, destination_ip: Optional[str] = None, protocol: Optional[str] = None):
         """Check for Port Scan behavior and generate alert if detected (rule-based, not model-based)"""
@@ -369,7 +436,7 @@ class AlertManager:
         PORT_SCAN_PORT_THRESHOLD = 10
         if not source_ip:
             source_ip = self._extract_source_ip(detection_data)
-        now = datetime.utcnow()
+        now = get_beijing_time()
         port_history = self.ip_port_history[source_ip]
         recent_ports = [port for port, t in port_history if (now - t).total_seconds() <= PORT_SCAN_WINDOW_SECONDS]
         unique_ports = set(recent_ports)
@@ -391,10 +458,24 @@ class AlertManager:
                     'ports_scanned': list(unique_ports),
                     'window_seconds': PORT_SCAN_WINDOW_SECONDS
                 },
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=get_beijing_time_iso(),
                 attack_type="Port Scan"
             )
-            asyncio.run(self._process_alert(alert))
+            # Use create_task instead of asyncio.run to avoid event loop conflicts
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Create task in existing loop
+                    loop.create_task(self._process_alert(alert))
+                else:
+                    # Run in new loop if none exists
+                    asyncio.run(self._process_alert(alert))
+            except Exception as e:
+                logger.error(f"Failed to process port scan alert: {e}")
+                # Fallback: process alert synchronously
+                self._process_alert_sync(alert)
+            
             self.ip_port_history[source_ip].clear()
     
     def _extract_source_ip(self, detection_data: Dict) -> Optional[str]:
@@ -416,61 +497,74 @@ class AlertManager:
         return None
     
     def _calculate_confidence(self, result: Dict) -> float:
-        """Calculate confidence score from model result"""
+        """Calculate confidence score from model result for alert level determination"""
         if 'probability' in result:
             return float(result['probability'])
         elif 'anomaly_score' in result:
-            # Convert anomaly score to confidence (higher score = higher confidence)
+            # For anomaly scores, higher score = higher confidence
             score = float(result['anomaly_score'])
-            if score > 1.0:
-                return min(score / 10.0, 1.0)
-            return score
-        return 0.5
+            if score > 1000:
+                return 0.95  # Very high confidence
+            elif score > 100:
+                return 0.85  # High confidence
+            elif score > 10:
+                return 0.75  # Medium confidence
+            else:
+                return 0.7   # Low but acceptable confidence
+        return 0.7  # Default confidence for unknown models
     
     def _check_rule_conditions(self, rule: AlertRule, detection_data: Dict, result: Dict, features: List) -> bool:
         """Check if alert rule conditions are met"""
         conditions = rule.conditions
         
-        # Check prediction condition
+        # Check prediction condition (most important)
         if 'prediction' in conditions:
             if result.get('prediction') != conditions['prediction']:
+                logger.info(f"❌ Rule {rule.id}: prediction mismatch - expected {conditions['prediction']}, got {result.get('prediction')}")
                 return False
         
         # Check model condition
         if 'model' in conditions:
             if result.get('model') != conditions['model']:
+                logger.debug(f"Rule {rule.id}: model mismatch - expected {conditions['model']}, got {result.get('model')}")
                 return False
         
-        # Check confidence threshold
+        # Check confidence threshold (only if explicitly specified)
         if 'min_confidence' in conditions:
             confidence = self._calculate_confidence(result)
             if confidence < conditions['min_confidence']:
+                logger.debug(f"Rule {rule.id}: confidence too low - {confidence:.3f} < {conditions['min_confidence']}")
                 return False
         
-        # Check threshold
+        # Check rule threshold (only if explicitly specified)
         if rule.threshold is not None:
             confidence = self._calculate_confidence(result)
             if confidence < rule.threshold:
+                logger.debug(f"Rule {rule.id}: threshold not met - {confidence:.3f} < {rule.threshold}")
                 return False
         
         # Check port conditions
         if 'ports' in conditions:
             target_port = self._extract_target_port(features)
             if target_port not in conditions['ports']:
+                logger.debug(f"Rule {rule.id}: port {target_port} not in allowed ports {conditions['ports']}")
                 return False
         
         # Check IP repeat conditions
         if 'same_ip_count' in conditions:
             source_ip = self._extract_source_ip(detection_data)
             if source_ip and self.ip_alert_counts[source_ip] < conditions['same_ip_count']:
+                logger.debug(f"Rule {rule.id}: IP {source_ip} count {self.ip_alert_counts[source_ip]} < {conditions['same_ip_count']}")
                 return False
         
         # Check repeat count for brute force
         if 'repeat_count' in conditions:
             target_port = self._extract_target_port(features)
             if target_port and self.port_alert_counts[target_port] < conditions['repeat_count']:
+                logger.debug(f"Rule {rule.id}: port {target_port} count {self.port_alert_counts[target_port]} < {conditions['repeat_count']}")
                 return False
         
+        logger.info(f"✅ Rule {rule.id}: all conditions met")
         return True
     
     def _create_alert(self, rule: AlertRule, detection_data: Dict, result: Dict, 
@@ -509,7 +603,7 @@ class AlertManager:
             model=model,
             confidence=confidence,
             threat_details=threat_details,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=get_beijing_time_iso(),
             attack_type=attack_type
         )
     
@@ -599,7 +693,7 @@ class AlertManager:
             history_entry = {
                 'alert_id': alert.id,
                 'action': 'created',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': get_beijing_time_iso(),
                 'details': f"Alert created: {alert.title}"
             }
             alert_history_collection.insert_one(history_entry)
@@ -613,6 +707,44 @@ class AlertManager:
         
         except Exception as e:
             logger.error(f"Error processing alert: {e}")
+    
+    def _process_alert_sync(self, alert: Alert):
+        """Synchronous fallback for alert processing when async is not available"""
+        try:
+            # Add to recent alerts
+            self.recent_alerts.append(alert)
+            
+            # Store in database
+            alerts_collection.insert_one(asdict(alert))
+            
+            # Store in alert history
+            history_entry = {
+                'alert_id': alert.id,
+                'action': 'created',
+                'timestamp': get_beijing_time_iso(),
+                'details': f"Alert created: {alert.title}"
+            }
+            alert_history_collection.insert_one(history_entry)
+            
+            # Execute alert actions synchronously
+            rule = self.alert_rules.get(alert.rule_id)
+            if rule:
+                # Create a new event loop for this thread if needed
+                try:
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(self._execute_alert_actions(alert, rule.actions))
+                    loop.close()
+                except Exception as e:
+                    logger.error(f"Failed to execute alert actions: {e}")
+                    # At least log the alert
+                    logger.warning(f"SECURITY ALERT: {alert.title} - {alert.message}")
+            
+            logger.info(f"Alert processed (sync): {alert.title} [{alert.level}]")
+        
+        except Exception as e:
+            logger.error(f"Error processing alert (sync): {e}")
     
     async def _execute_alert_actions(self, alert: Alert, actions: List[str]):
         """Execute alert actions"""
@@ -729,7 +861,7 @@ class AlertManager:
     
     def get_alert_statistics(self) -> Dict:
         """Get alert statistics"""
-        now = datetime.utcnow()
+        now = get_beijing_time()
         
         # Count alerts by level in last 24 hours
         yesterday = now - timedelta(hours=24)
@@ -776,7 +908,7 @@ class AlertManager:
         for key, value in update_data.items():
             if hasattr(rule, key):
                 setattr(rule, key, value)
-        rule.updated_at = datetime.utcnow().isoformat()
+        rule.updated_at = get_beijing_time_iso()
         self.alert_rules[rule_id] = rule
         alert_rules_collection.update_one({"id": rule_id}, {"$set": asdict(rule)})
         return rule
@@ -881,7 +1013,7 @@ async def acknowledge_alert(alert_id: str, request: Request):
                 "$set": {
                     "acknowledged": True,
                     "acknowledged_by": username,
-                    "acknowledged_at": datetime.utcnow().isoformat()
+                    "acknowledged_at": get_beijing_time_iso()
                 }
             }
         )
@@ -892,7 +1024,7 @@ async def acknowledge_alert(alert_id: str, request: Request):
             'alert_id': alert_id,
             'action': 'acknowledged',
             'user': username,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': get_beijing_time_iso(),
             'details': f"Alert acknowledged by {username}"
         }
         alert_history_collection.insert_one(history_entry)
@@ -931,7 +1063,7 @@ async def resolve_alert(alert_id: str, request: Request):
                 "$set": {
                     "resolved": True,
                     "resolved_by": username,
-                    "resolved_at": datetime.utcnow().isoformat()
+                    "resolved_at": get_beijing_time_iso()
                 }
             }
         )
@@ -942,7 +1074,7 @@ async def resolve_alert(alert_id: str, request: Request):
             'alert_id': alert_id,
             'action': 'resolved',
             'user': username,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': get_beijing_time_iso(),
             'details': f"Alert resolved by {username}"
         }
         alert_history_collection.insert_one(history_entry)
@@ -976,7 +1108,7 @@ async def create_alert_rule(rule_data: dict, request: Request):
         # Create rule
         rule_id = str(uuid.uuid4())
         rule_data['id'] = rule_id
-        rule_data['created_at'] = datetime.utcnow().isoformat()
+        rule_data['created_at'] = get_beijing_time_iso()
         rule_data['updated_at'] = rule_data['created_at']
         
         rule = AlertRule(**rule_data)

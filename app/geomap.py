@@ -6,6 +6,7 @@ import re
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 from pymongo import MongoClient
 from fastapi import APIRouter, HTTPException
 import asyncio
@@ -70,7 +71,7 @@ class GeoIPService:
         try:
             geo_cache.update_one(
                 {'ip': ip},
-                {'$set': {'ip': ip, 'location_data': location_data, 'cached_at': datetime.utcnow()}},
+                {'$set': {'ip': ip, 'location_data': location_data, 'cached_at': get_beijing_time()}},
                 upsert=True
             )
         except Exception as e:
@@ -249,7 +250,7 @@ class AttackMapService:
             return
         
         attack_record = {
-            'timestamp': datetime.utcnow(),
+            'timestamp': get_beijing_time(),
             'source_ip': source_ip,
             'location': location,
             'attack_details': attack_details,
@@ -272,7 +273,7 @@ class AttackMapService:
     
     def get_recent_attacks(self, minutes: int = 60) -> List[dict]:
         """Get recent attacks within specified time window"""
-        cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
+        cutoff_time = get_beijing_time() - timedelta(minutes=minutes)
         
         try:
             # Get from database for persistence
@@ -298,7 +299,7 @@ class AttackMapService:
                 {
                     '$match': {
                         'timestamp': {
-                            '$gte': datetime.utcnow() - timedelta(hours=24)
+                            '$gte': get_beijing_time() - timedelta(hours=24)
                         }
                     }
                 },

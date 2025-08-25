@@ -2,7 +2,8 @@
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from pymongo import MongoClient
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 from typing import Optional
 import csv
 import io
@@ -20,7 +21,7 @@ class Report(BaseModel):
     model: str
     input: list[float]
     output: dict
-    timestamp: str = datetime.utcnow().isoformat()
+    timestamp: str = get_beijing_time_iso()
 
 @router.post("/report")
 def save_report(report: Report):
@@ -156,7 +157,7 @@ def get_reports_stats():
         
         # Get recent activity (last 24 hours)
         from datetime import datetime, timedelta
-        yesterday = (datetime.utcnow() - timedelta(days=1)).isoformat()
+        yesterday = (get_beijing_time() - timedelta(days=1)).isoformat()
         recent_count = collection.count_documents({"timestamp": {"$gte": yesterday}})
         
         return {

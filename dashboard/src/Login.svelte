@@ -7,7 +7,7 @@
 
   const dispatch = createEventDispatcher();
   
-  let username = '';
+  let usernameOrEmail = '';
   let password = '';
   let showPassword = false;
   let loading = writable(false);
@@ -26,7 +26,7 @@
         },
         credentials: 'include',
         body: JSON.stringify({
-          username,
+          username_or_email: usernameOrEmail,
           password
         })
       });
@@ -37,16 +37,16 @@
         const data = await response.json();
         console.log('Fetch login successful:', data);
         
-        // Set authenticated user immediately
+                      // Set authenticated user immediately
         setAuthenticatedUser(data.user);
         
         error.set(null);
         success.set('Login successful! Redirecting...');
-        username = '';
+        usernameOrEmail = '';
         password = '';
         
-        // Navigate to dashboard
-        setTimeout(() => push('/'), 500);
+        // Navigate to dashboard with longer delay to ensure cookie is set
+        setTimeout(() => push('/'), 1000);
         return true;
       } else {
         console.log('Fetch login failed with status:', response.status);
@@ -65,7 +65,7 @@
   }
 
   async function handleLogin() {
-    if (!username || !password) {
+    if (!usernameOrEmail || !password) {
       error.set('Please fill in all fields');
       success.set(null);
       return;
@@ -84,10 +84,10 @@
 
     // If fetch failed, try axios as backup
     try {
-      console.log('Fetch failed, trying axios method for user:', username);
+      console.log('Fetch failed, trying axios method for user:', usernameOrEmail);
       
       const response = await axios.post('http://localhost:8000/auth/login', {
-        username,
+        username_or_email: usernameOrEmail,
         password
       }, {
         withCredentials: true,
@@ -108,7 +108,7 @@
       success.set('Login successful! Redirecting...');
       
       // Clear form data for security
-      username = '';
+      usernameOrEmail = '';
       password = '';
       
       console.log('Axios login successful, clearing form and redirecting...');
@@ -129,11 +129,11 @@
         
         error.set(null);
         success.set('Login successful! Redirecting...');
-        username = '';
+        usernameOrEmail = '';
         password = '';
         
-        // Navigate to dashboard
-        setTimeout(() => push('/'), 500);
+        // Navigate to dashboard with longer delay to ensure cookie is set
+        setTimeout(() => push('/'), 1000);
         return;
       }
       
@@ -211,14 +211,14 @@
 
     <form class="login-form" on:submit|preventDefault={handleLogin}>
       <div class="form-group">
-        <label for="username" class="form-label">Username</label>
+        <label for="username" class="form-label">Username or Email</label>
         <input
           id="username"
           type="text"
           class="form-input"
-          bind:value={username}
+          bind:value={usernameOrEmail}
           on:keypress={handleKeyPress}
-          placeholder="Enter your username"
+          placeholder="Enter your username or email"
           disabled={$loading}
         />
       </div>

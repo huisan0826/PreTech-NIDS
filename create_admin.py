@@ -6,7 +6,8 @@ This script creates a default admin account for the system.
 
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 
 def main():
     """Main function"""
@@ -92,7 +93,7 @@ def main():
             "username": admin_username,
             "email": admin_email,
             "password": hashed_password,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": get_beijing_time_iso(),
             "is_active": True,
             "is_admin": True,  # Admin flag
             "role": "administrator"

@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 from typing import Optional
 import secrets
 import re
@@ -344,7 +345,7 @@ class UserRegister(BaseModel):
         return v
 
 class UserLogin(BaseModel):
-    username: str
+    username_or_email: str
     password: str
 
 class Token(BaseModel):
@@ -409,21 +410,42 @@ class RegistrationVerifyRequest(BaseModel):
     email: EmailStr
     otp_code: str
 
-class ResetPasswordWithOtpRequest(BaseModel):
+class VerifyOtpRequest(BaseModel):
     email: EmailStr
     otp_code: str
+
+class CompletePasswordResetRequest(BaseModel):
+    email: EmailStr
     new_password: str
     confirm_password: str
 
     @validator('new_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+    @validator('confirm_password')
+    def passwords_match(cls, v, values, **kwargs):
+        if 'new_password' in values and v != values['new_password']:
+            raise ValueError('Passwords do not match')
+        return v
+
+class ResetPasswordWithOtpRequest(BaseModel):
+    email: EmailStr
+    otp_code: str
+    new_password: Optional[str] = None
+    confirm_password: Optional[str] = None
+
+    @validator('new_password')
     def validate_password_reset_otp(cls, v):
-        if len(v) < 6:
+        if v is not None and len(v) < 6:
             raise ValueError('Password must be at least 6 characters long')
         return v
 
     @validator('confirm_password')
     def passwords_match_reset_otp(cls, v, values, **kwargs):
-        if 'new_password' in values and v != values['new_password']:
+        if 'new_password' in values and values['new_password'] is not None and v != values['new_password']:
             raise ValueError('Passwords do not match')
         return v
 
@@ -526,9 +548,9 @@ def is_strong_password(password: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = get_beijing_time() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = get_beijing_time() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -562,26 +584,26 @@ def send_reset_email(email: str, reset_token: str, username: str):
         msg['From'] = formataddr((FROM_NAME, FROM_EMAIL))
         msg['Reply-To'] = FROM_EMAIL
         msg['To'] = email
-        msg['Subject'] = "PreTect-NIDS 密码重置请求"
+        msg['Subject'] = "PreTect-NIDS Password Reset Request"
         
         # Create reset link
         reset_link = f"http://localhost:3000/reset-password?token={reset_token}"
         
         # Email body
         body = f"""
-        您好 {username}，
+        Hello {username},
 
-        我们收到了您的密码重置请求。如果这不是您发起的，请忽略此邮件。
+        We received your password reset request. If you didn't initiate this, please ignore this email.
 
-        要重置您的密码，请点击以下链接：
+        To reset your password, please click the following link:
         {reset_link}
 
-        此链接将在1小时后过期。
+        This link will expire in 1 hour.
 
-        如果您没有请求重置密码，请忽略此邮件。
+        If you didn't request a password reset, please ignore this email.
 
-        此致，
-        PreTect-NIDS 团队
+        Best regards,
+        PreTect-NIDS Team
         """
         
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
@@ -605,14 +627,14 @@ def create_reset_token(email: str) -> str:
     token = secrets.token_urlsafe(32)
     
     # Store token in database with expiration
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+    expires_at = get_beijing_time() + timedelta(hours=1)
     
     reset_doc = {
         "email": email,
         "token": token,
         "expires_at": expires_at,
         "used": False,
-        "created_at": datetime.utcnow()
+        "created_at": get_beijing_time()
     }
     
     # Remove old tokens for this email
@@ -628,7 +650,7 @@ def verify_reset_token(token: str) -> Optional[str]:
     reset_doc = password_reset_collection.find_one({
         "token": token,
         "used": False,
-        "expires_at": {"$gt": datetime.utcnow()}
+        "expires_at": {"$gt": get_beijing_time()}
     })
     
     if reset_doc:
@@ -733,26 +755,26 @@ def send_reset_email(email: str, reset_token: str, username: str):
         msg = MIMEMultipart()
         msg['From'] = FROM_EMAIL
         msg['To'] = email
-        msg['Subject'] = "PreTect-NIDS 密码重置请求"
+        msg['Subject'] = "PreTect-NIDS Password Reset Request"
         
         # Create reset link
         reset_link = f"http://localhost:3000/reset-password?token={reset_token}"
         
         # Email body
         body = f"""
-        您好 {username}，
+        Hello {username},
 
-        我们收到了您的密码重置请求。如果这不是您发起的，请忽略此邮件。
+        We received your password reset request. If you didn't initiate this, please ignore this email.
 
-        要重置您的密码，请点击以下链接：
+        To reset your password, please click the following link:
         {reset_link}
 
-        此链接将在1小时后过期。
+        This link will expire in 1 hour.
 
-        如果您没有请求重置密码，请忽略此邮件。
+        If you didn't request a password reset, please ignore this email.
 
-        此致，
-        PreTect-NIDS 团队
+        Best regards,
+        PreTect-NIDS Team
         """
         
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
@@ -776,14 +798,14 @@ def create_reset_token(email: str) -> str:
     token = secrets.token_urlsafe(32)
     
     # Store token in database with expiration
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+    expires_at = get_beijing_time() + timedelta(hours=1)
     
     reset_doc = {
         "email": email,
         "token": token,
         "expires_at": expires_at,
         "used": False,
-        "created_at": datetime.utcnow()
+        "created_at": get_beijing_time()
     }
     
     # Remove old tokens for this email
@@ -799,7 +821,7 @@ def verify_reset_token(token: str) -> Optional[str]:
     reset_doc = password_reset_collection.find_one({
         "token": token,
         "used": False,
-        "expires_at": {"$gt": datetime.utcnow()}
+        "expires_at": {"$gt": get_beijing_time()}
     })
     
     if reset_doc:
@@ -889,8 +911,8 @@ def register_user(user: UserRegister):
             "email": user.email,
             "hashed_password": hashed_password,
             "role": get_default_role(),  # Set default role
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": get_beijing_time_iso(),
+            "updated_at": get_beijing_time_iso(),
             "is_active": True
         }
         
@@ -937,8 +959,8 @@ def initiate_registration(payload: RegistrationInitiateRequest):
             "hashed_password": hashed_password,
             "otp_code": otp_code,
             "attempts": 0,
-            "expires_at": datetime.utcnow() + timedelta(minutes=10),
-            "created_at": datetime.utcnow()
+            "expires_at": get_beijing_time() + timedelta(minutes=10),
+            "created_at": get_beijing_time()
         })
 
         # Send email
@@ -962,7 +984,7 @@ def resend_registration_code(payload: dict):
 
         rec = registration_verifications_collection.find_one({
             "email": email,
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": get_beijing_time()}
         })
         if not rec:
             # For security: do not reveal whether pending exists
@@ -971,7 +993,7 @@ def resend_registration_code(payload: dict):
         otp_code = generate_otp_code()
         registration_verifications_collection.update_one(
             {"_id": rec["_id"]},
-            {"$set": {"otp_code": otp_code, "expires_at": datetime.utcnow() + timedelta(minutes=10)}}
+            {"$set": {"otp_code": otp_code, "expires_at": get_beijing_time() + timedelta(minutes=10)}}
         )
 
         if not send_verification_email(email, otp_code, rec.get("username", "User")):
@@ -988,7 +1010,7 @@ def verify_registration(payload: RegistrationVerifyRequest):
     try:
         rec = registration_verifications_collection.find_one({
             "email": payload.email,
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": get_beijing_time()}
         })
         if not rec:
             raise HTTPException(status_code=400, detail="Verification expired or not found")
@@ -1008,8 +1030,8 @@ def verify_registration(payload: RegistrationVerifyRequest):
             "email": rec["email"],
             "hashed_password": rec["hashed_password"],
             "role": get_default_role(),
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": get_beijing_time_iso(),
+            "updated_at": get_beijing_time_iso(),
             "is_active": True
         }
         result = users_collection.insert_one(user_doc)
@@ -1032,13 +1054,16 @@ def verify_registration(payload: RegistrationVerifyRequest):
 @router.post("/login", response_model=Token)
 def login_user(user: UserLogin, response: Response):
     try:
-        # Find user by username
-        existing_user = get_user_by_username(user.username)
+        # Find user by username or email
+        existing_user = get_user_by_username(user.username_or_email)
         if not existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            # Try to find by email if username not found
+            existing_user = get_user_by_email(user.username_or_email)
+            if not existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
 
         # Check if account is active
         if existing_user.get("is_active") is False:
@@ -1071,7 +1096,8 @@ def login_user(user: UserLogin, response: Response):
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             secure=False,  # In production use HTTPS and set True with SameSite=None
-            samesite="lax"
+            samesite="lax",
+            path="/"  # Ensure cookie is available for all paths
         )
 
         return Token(
@@ -1111,6 +1137,22 @@ def logout_user(response: Response):
         )
 
 # Password reset routes (OTP flow)
+
+
+@router.post("/password-reset/resend-otp")
+async def resend_password_reset_otp():
+    """Resend OTP code for password reset"""
+    try:
+        # This endpoint would need to know which user to resend to
+        # For now, we'll require the user to go through the forgot password flow again
+        raise HTTPException(status_code=400, detail="Please use the forgot password form to request a new code")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Resend password reset OTP error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to resend reset code")
+
 @router.post("/password-reset/initiate-otp")
 async def initiate_password_reset_otp(request: ForgotPasswordRequest):
     """Send OTP code for password reset. If email not found, return explicit error."""
@@ -1128,8 +1170,8 @@ async def initiate_password_reset_otp(request: ForgotPasswordRequest):
             "otp_code": otp_code,
             "used": False,
             "attempts": 0,
-            "expires_at": datetime.utcnow() + timedelta(minutes=10),
-            "created_at": datetime.utcnow()
+            "expires_at": get_beijing_time() + timedelta(minutes=10),
+            "created_at": get_beijing_time()
         })
 
         if not send_reset_otp_email(request.email, otp_code, user["username"]):
@@ -1143,24 +1185,44 @@ async def initiate_password_reset_otp(request: ForgotPasswordRequest):
         raise HTTPException(status_code=500, detail="Failed to process password reset request")
 
 @router.post("/password-reset/verify-otp")
-async def reset_password_with_otp(request: ResetPasswordWithOtpRequest):
-    """Reset password using email + OTP code"""
+async def verify_otp(request: VerifyOtpRequest):
+    """Verify OTP code for password reset"""
     try:
-        # Strong password policy
-        if not is_strong_password(request.new_password):
-            raise HTTPException(status_code=400, detail="Password too weak. Use at least 8 chars with upper, lower, number and special character.")
+        # Find any valid password reset record with this OTP
+        rec = password_reset_collection.find_one({
+            "otp_code": request.otp_code,
+            "used": False,
+            "expires_at": {"$gt": get_beijing_time()}
+        })
+        
+        if not rec:
+            raise HTTPException(status_code=400, detail="Invalid or expired verification code")
 
+        return {"message": "OTP verified successfully", "email": rec["email"]}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Verify OTP error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify OTP")
+
+@router.post("/password-reset/complete")
+async def complete_password_reset(request: CompletePasswordResetRequest):
+    """Complete password reset after OTP verification"""
+    try:
+        # Find the password reset record for this email
         rec = password_reset_collection.find_one({
             "email": request.email,
             "used": False,
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": get_beijing_time()}
         })
+        
         if not rec:
-            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+            raise HTTPException(status_code=400, detail="No valid password reset session found")
 
-        if str(rec.get("otp_code")) != str(request.otp_code):
-            password_reset_collection.update_one({"_id": rec["_id"]}, {"$inc": {"attempts": 1}})
-            raise HTTPException(status_code=400, detail="Invalid reset code")
+        # Strong password policy
+        if not is_strong_password(request.new_password):
+            raise HTTPException(status_code=400, detail="Password too weak. Use at least 8 chars with upper, lower, number and special character.")
 
         user = get_user_by_email(request.email)
         if not user:
@@ -1174,17 +1236,18 @@ async def reset_password_with_otp(request: ResetPasswordWithOtpRequest):
         hashed_password = get_password_hash(request.new_password)
         result = users_collection.update_one(
             {"email": request.email},
-            {"$set": {"hashed_password": hashed_password, "updated_at": datetime.utcnow().isoformat()}}
+            {"$set": {"hashed_password": hashed_password, "updated_at": get_beijing_time_iso()}}
         )
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="User not found")
 
         password_reset_collection.update_one({"_id": rec["_id"]}, {"$set": {"used": True}})
         return {"message": "Password reset successfully"}
+        
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Reset password with OTP error: {e}")
+        print(f"Complete password reset error: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset password")
 
 # Deprecated: link-based reset; kept commented for reference
@@ -1228,6 +1291,8 @@ async def check_authentication(request: Request):
     try:
         # Get JWT token from cookie
         token = request.cookies.get("access_token")
+        print(f"Check auth - cookies: {request.cookies}")
+        print(f"Check auth - token: {token}")
         if not token:
             return {"authenticated": False, "user": None}
         
@@ -1332,7 +1397,7 @@ async def update_profile(profile_data: ProfileUpdateRequest, request: Request):
         # Update user in database
         update_data = {
             "username": profile_data.username.strip(),
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": get_beijing_time_iso()
         }
         
         if profile_data.email is not None:
@@ -1439,7 +1504,7 @@ async def change_password(password_data: PasswordChangeRequest, request: Request
             {"username": username},
             {"$set": {
                 "hashed_password": hashed_new_password,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": get_beijing_time_iso()
             }}
         )
         
@@ -1487,7 +1552,7 @@ async def upload_avatar(file: UploadFile = File(...), request: Request = None):
             {"username": username},
             {"$set": {
                 "avatar": filename,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": get_beijing_time_iso()
             }}
         )
         
@@ -1535,7 +1600,7 @@ async def delete_avatar(request: Request):
             {"username": username},
             {"$set": {
                 "avatar": None,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": get_beijing_time_iso()
             }}
         )
         
@@ -1628,7 +1693,7 @@ async def update_user_role(user_id: str, role_data: dict, request: Request):
             {"_id": ObjectId(user_id)},
             {"$set": {
                 "role": new_role,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": get_beijing_time_iso()
             }}
         )
         

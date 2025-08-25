@@ -10,7 +10,7 @@ from tensorflow import keras
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 from pymongo import MongoClient
 from app.report import router as report_router
 from app.auth import router as auth_router
@@ -23,6 +23,28 @@ from scapy.all import get_if_list, sniff
 import platform
 import subprocess
 import re
+
+# Add the parent directory to the path so we can import from app
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from fastapi import FastAPI, HTTPException, Request, Depends, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, FileResponse
+from pydantic import BaseModel
+import numpy as np
+import pandas as pd
+import joblib
+import subprocess
+import requests
+from pymongo import MongoClient
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import timezone utilities
+from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 
 # Load .env very early
 load_dotenv()
@@ -277,8 +299,7 @@ async def get_dashboard_stats():
         total_alerts = reports.count_documents({"type": {"$in": ["manual_testing", "real_time_detection"]}})
         
         # Get recent attacks (last 24 hours)
-        from datetime import datetime, timedelta
-        yesterday = datetime.utcnow() - timedelta(hours=24)
+        yesterday = get_beijing_time() - timedelta(hours=24)
         recent_attacks = reports.count_documents({
             "type": {"$in": ["manual_testing", "real_time_detection"]},
             "result.prediction": "Attack",
@@ -292,7 +313,7 @@ async def get_dashboard_stats():
             "total_alerts": total_alerts,
             "recent_attacks": recent_attacks,
             "system_status": system_status,
-            "last_update": datetime.utcnow().isoformat()
+            "last_update": get_beijing_time_iso()
         }
     except Exception as e:
         print(f"Dashboard stats error: {e}")
@@ -300,7 +321,7 @@ async def get_dashboard_stats():
             "total_alerts": 0,
             "recent_attacks": 0,
             "system_status": "Online",
-            "last_update": datetime.utcnow().isoformat()
+            "last_update": get_beijing_time_iso()
         }
 
 @app.get("/api/alerts/recent")
@@ -380,15 +401,35 @@ def model_predict(features, model_name):
         if hasattr(rf_model, 'feature_names_in_'):
             # Create a DataFrame with feature names to match training
             import pandas as pd
-            X_df = pd.DataFrame(X, columns=rf_model.feature_names_in_)
+            # Generate feature names that match the training data structure
+            feature_names = []
+            for i in range(len(features)):
+                if i < 7:  # TCP/UDP specific features
+                    feature_names.append(f'feature_{i}')
+                elif i < 11:  # IP layer features
+                    feature_names.append(f'ip_feature_{i-7}')
+                else:  # Padded features
+                    feature_names.append(f'padded_feature_{i-11}')
+            
+            X_df = pd.DataFrame(X, columns=feature_names)
             label = int(rf_model.predict(X_df)[0])
             prob = float(rf_model.predict_proba(X_df)[0][1])
         else:
             # Use numpy array directly if no feature names
             label = int(rf_model.predict(X)[0])
             prob = float(rf_model.predict_proba(X)[0][1])
+        
+        # Debug: Log the prediction process
+        print(f"🔍 RF Debug - Label: {label}, Type: {type(label)}")
+        print(f"🔍 RF Debug - Model classes: {rf_model.classes_ if hasattr(rf_model, 'classes_') else 'No classes'}")
+        
         prediction = "Attack" if label == 1 else "Normal"
+        print(f"🔍 RF Debug - Final prediction: '{prediction}' (length: {len(prediction)})")
+        
         result = {"model": "Random Forest", "probability": prob, "prediction": prediction}
+        print(f"🔍 RF Debug - Result object: {result}")
+        
+        return result
     else:
         return {"error": f"Model '{model_name}' not supported"}
     return result
@@ -414,7 +455,7 @@ async def predict(input: FeatureInput, request: Request):
         result = model_predict(features, model_name)
         # Save report
         report = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": get_beijing_time_iso(),
             "model": input.model,
             "features": input.features,
             "result": result,
@@ -597,7 +638,7 @@ class RealTimeDetector:
             for result in results:
                 if result.get('prediction') == 'Attack':
                     report = {
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": get_beijing_time_iso(),
                         "model": result.get('model', 'Unknown'),
                         "features": features,
                         "result": result,
