@@ -1,0 +1,78 @@
+@startuml
+title PreTech-NIDS - Real-time Detection Activity
+hide circle
+
+start
+:User Opens Real-time Page;
+
+:Check System Status;
+if (System Ready?) then (yes)
+else (no)
+  :Show System Error;
+  stop
+endif
+
+:Get Available Interfaces;
+note right: Network interfaces list
+
+:User Selects Interface;
+
+:User Selects Detection Model;
+note right: Single model or all models
+
+:User Configures Parameters;
+note right: Thresholds, filters
+
+:Send Start Detection Request;
+
+:Validate Interface;
+if (Interface Valid?) then (yes)
+else (no)
+  :Show Interface Error;
+  :Return to Selection;
+  stop
+endif
+
+:Initialize Packet Capture;
+
+:Start Network Monitoring;
+
+:Capture Network Packets;
+
+:Extract Packet Features;
+note right: 77-dimensional feature vector
+
+:Select ML Model for Prediction;
+if (Use All Models?) then (yes)
+  :Run Parallel Predictions;
+  note right: Kitsune, AE, LSTM, CNN, RF
+  :Aggregate Results;
+else (no)
+  :Run Single Model Prediction;
+endif
+
+:Analyze Prediction Results;
+
+if (Threat Detected?) then (yes)
+  :Generate Alert;
+  :Record Threat Location;
+  :Send Alert Notification;
+  :Store Detection Report;
+  :Update Real-time UI;
+else (no)
+  :Store Detection Report;
+  :Update Real-time UI;
+endif
+
+:Continue Monitoring;
+while (Stop Requested?) is (no)
+  :Continue to Next Packet;
+  :Capture Network Packets;
+endwhile
+:Stop Packet Capture;
+:Cleanup Resources;
+:Show Stopped Status;
+stop
+
+stop
+@enduml

@@ -1,0 +1,73 @@
+@startuml
+title PreTech-NIDS - Sign In (Login) Activity
+hide circle
+
+start
+:User accesses login page;
+
+:Display login form;
+
+:User enters credentials;
+note right: Username/Email + Password
+
+:Validate input format;
+if (Format valid?) then (yes)
+else (no)
+  :Show format error message;
+  :Return to login form;
+  stop
+endif
+
+:Send authentication request;
+note right: POST /auth/login
+
+:Check user exists in database;
+if (User found?) then (yes)
+else (no)
+  :Log failed login attempt;
+  :Show "User not found" error;
+  :Return to login form;
+  stop
+endif
+
+:Check account status;
+if (Account active?) then (yes)
+else (no)
+  :Show "Account disabled" error;
+  :Return to login form;
+  stop
+endif
+
+:Verify password hash;
+if (Password correct?) then (yes)
+else (no)
+  :Log failed login attempt;
+  :Increment login attempts;
+  
+  if (Max attempts reached?) then (yes)
+    :Lock account temporarily;
+    :Show "Account locked" message;
+    :Set lockout timer;
+  else (no)
+    :Show "Incorrect password" error;
+  endif
+  
+  :Return to login form;
+  stop
+endif
+
+:Generate JWT access token;
+note right: 30 minutes expiry
+
+:Update last login time;
+
+:Store session information;
+
+:Set HTTP-only cookie;
+
+:Redirect to dashboard;
+
+:User successfully authenticated;
+
+stop
+@enduml

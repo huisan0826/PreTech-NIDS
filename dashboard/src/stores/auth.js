@@ -13,6 +13,11 @@ export function hasPermission(permission) {
     return false;
   }
   
+  // Admin users have all permissions
+  if (user.role === 'admin') {
+    return true;
+  }
+  
   return user.permissions.includes(permission);
 }
 
@@ -34,6 +39,8 @@ export function isAnalyst() {
   
   return user?.role === 'admin' || user?.role === 'analyst';
 }
+
+
 
 // Reset auth state
 export function resetAuth() {

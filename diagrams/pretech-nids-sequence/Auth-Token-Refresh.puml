@@ -1,0 +1,92 @@
+@startuml
+title PreTech-NIDS - Auth: Token Refresh
+hide circle
+autonumber
+
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant Auth as "AuthService"
+database DB as "MongoDB"
+participant JWT as "JWTService"
+
+FE -> BE : POST /auth/refresh {refresh_token}
+activate BE
+
+BE -> Auth : validate_refresh_token(refresh_token)
+activate Auth
+
+Auth -> JWT : decode_refresh_token(refresh_token)
+activate JWT
+
+alt Token format valid
+  JWT -> JWT : Verify token signature
+  alt Signature valid
+    JWT -> JWT : Check token expiration
+    alt Token not expired
+      JWT -> JWT : Extract user_id from token
+      JWT --> Auth : {user_id, claims}
+      deactivate JWT
+      
+      Auth -> DB : Check if user exists and active
+      DB --> Auth : User status
+      
+      alt User exists and active
+        Auth -> JWT : generate_new_access_token(user_id)
+        JWT --> Auth : {access_token, expires_in}
+        
+        Auth -> DB : Update last refresh time
+        DB --> Auth : Updated
+        
+        Auth --> BE : {access_token, expires_in, user_id}
+        deactivate Auth
+        
+        BE --> FE : 200 {access_token, expires_in, user_id}
+      else User not found or inactive
+        Auth --> BE : Error: User invalid
+        deactivate Auth
+        BE --> FE : 401 Unauthorized
+      end
+    else Token expired
+      JWT --> Auth : Error: Token expired
+      deactivate JWT
+      Auth --> BE : Error: Token expired
+      deactivate Auth
+      BE --> FE : 401 Unauthorized
+    end
+  else Invalid signature
+    JWT --> Auth : Error: Invalid signature
+    deactivate JWT
+    Auth --> BE : Error: Invalid token
+    deactivate Auth
+    BE --> FE : 401 Unauthorized
+  end
+else Invalid token format
+  JWT --> Auth : Error: Invalid format
+  deactivate JWT
+  Auth --> BE : Error: Invalid format
+  deactivate Auth
+  BE --> FE : 400 Bad Request
+end
+
+deactivate BE
+
+note right of FE
+  Frontend actions:
+  - Store new access token
+  - Update token expiration
+  - Continue user session
+  - Redirect if needed
+end note
+
+note right of BE
+  Backend actions:
+  - Validate refresh token
+  - Check user status
+  - Generate new access token
+  - Update user activity
+  - Return appropriate response
+end note
+
+@enduml
+
+

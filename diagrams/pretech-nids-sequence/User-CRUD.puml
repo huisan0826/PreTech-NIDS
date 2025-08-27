@@ -1,0 +1,44 @@
+@startuml
+title PreTech-NIDS - User Management CRUD
+hide circle
+autonumber
+
+actor Admin as "Admin"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+database DB as "MongoDB"
+
+group List
+  Admin -> FE : Open users page
+  FE -> BE : GET /users
+  BE -> DB : find users
+  DB --> BE : users
+  BE --> FE : users
+end
+
+group Create
+  Admin -> FE : Create user
+  FE -> BE : POST /users {data}
+  BE -> DB : insert
+  DB --> BE : id
+  BE --> FE : success
+end
+
+group Update
+  Admin -> FE : Edit user
+  FE -> BE : PUT /users/{id} {data}
+  BE -> DB : update
+  DB --> BE : ack
+  BE --> FE : success
+end
+
+group Delete
+  Admin -> FE : Delete user
+  FE -> BE : DELETE /users/{id}
+  BE -> DB : delete
+  DB --> BE : ack
+  BE --> FE : success
+end
+@enduml
+
+

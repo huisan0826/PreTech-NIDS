@@ -1,0 +1,94 @@
+@startuml
+title PreTech-NIDS - Geographic Analysis Activity
+hide circle
+
+start
+:User accesses geographic analysis;
+
+:Check user permissions;
+if (Has geographic analysis access?) then (yes)
+else (no)
+  :Show access denied message;
+  :Redirect to dashboard;
+  stop
+endif
+
+:Load geographic data;
+note right: Threat locations, IP addresses
+
+:Display geographic interface;
+note right: Map view, Statistics, Filters
+
+:User interacts with geographic data;
+
+if (View threat map?) then (yes)
+  :User selects map view;
+  :Load threat locations;
+  :Query IP geolocation services;
+  note right: ip-api.com, ipinfo.io
+  :Resolve IP addresses to coordinates;
+  :Plot threats on map;
+  :Display threat markers;
+  :Show threat details on hover;
+elseif (Analyze specific location?) then (yes)
+  :User clicks on map location;
+  :Load location details;
+  :Display threat statistics;
+  :Show attack patterns;
+  :Show time-based analysis;
+  :Show threat types distribution;
+elseif (Search by IP address?) then (yes)
+  :User enters IP address;
+  :Validate IP format;
+  if (IP format valid?) then (yes)
+    :Query geolocation service;
+    :Get location information;
+    note right: Country, City, Coordinates, ISP
+    :Check threat history;
+    :Display location on map;
+    :Show threat details;
+  else (no)
+    :Show format error;
+    :Return to IP input;
+  endif
+elseif (Filter by geographic region?) then (yes)
+  :User selects region filter;
+  :Choose country/continent;
+  :Apply geographic filter;
+  :Update threat display;
+  :Show filtered statistics;
+  :Highlight selected region;
+elseif (View threat statistics?) then (yes)
+  :User clicks statistics view;
+  :Load geographic statistics;
+  :Calculate threat distribution;
+  :Generate charts and graphs;
+  :Display top threat countries;
+  :Show attack frequency by region;
+  :Show threat level by location;
+elseif (Export geographic data?) then (yes)
+  :User requests export;
+  :Choose export format;
+  note right: CSV, JSON, KML
+  :Apply current filters;
+  :Include coordinate data;
+  :Generate export file;
+  :Download file;
+elseif (Update threat locations?) then (yes)
+  :System detects new threats;
+  :Extract IP addresses;
+  :Query geolocation services;
+  :Store location data;
+  :Update threat database;
+  :Refresh map display;
+else (no)
+  :No action;
+endif
+
+:Update geographic display;
+note right: Real-time updates
+
+:Continue geographic analysis;
+
+stop
+@enduml

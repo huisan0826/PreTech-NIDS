@@ -1,0 +1,30 @@
+@startuml
+title PreTech-NIDS - Reports & User Management
+hide circle
+autonumber
+
+actor U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+database DB as "MongoDB"
+
+group Reports
+  U -> FE : Request report
+  FE -> BE : GET /reports?filters
+  BE -> DB : Aggregate detections + alerts
+  DB --> BE : data
+  BE --> FE : report payload
+  FE -> U : Render charts/tables
+end
+
+group User Management
+  U -> FE : Open user management
+  FE -> BE : List/Create/Update/Delete users
+  BE -> DB : Query/Modify users
+  DB --> BE : Results
+  BE --> FE : Results
+  FE -> U : Show operation feedback
+end
+@enduml
+
+

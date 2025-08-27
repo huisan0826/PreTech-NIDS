@@ -1,0 +1,22 @@
+@startuml
+title PreTech-NIDS - Report Generation & Export
+hide circle
+autonumber
+
+actor U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+database DB as "MongoDB"
+
+U -> FE : Request report (filters)
+FE -> BE : GET /reports?filters
+BE -> DB : aggregate detections + alerts
+DB --> BE : data
+BE --> FE : report payload
+
+U -> FE : Export report (CSV/JSON/PDF)
+FE -> BE : POST /reports/export {format, dataRef}
+BE --> FE : File download / link
+@enduml
+
+

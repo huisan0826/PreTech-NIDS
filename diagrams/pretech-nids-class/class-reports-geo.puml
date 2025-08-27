@@ -1,0 +1,144 @@
+@startuml
+title PreTech-NIDS - Class Diagram (Reports & Geographic Analysis)
+hide circle
+
+class Report {
+  +model: string
+  +input: List<float>
+  +output: Dict
+  +timestamp: string
+}
+
+class ReportService {
+  +save_report(report: Report): Dict
+  +get_reports(limit: int, skip: int, filters: Dict): Dict
+  +get_reports_stats(): Dict
+  +export_reports(format: string, filters: Dict): Response
+  +_build_query_filter(filters: Dict): Dict
+  +_apply_date_filters(query: Dict, date_from: string, date_to: string): void
+}
+
+class GeoMapService {
+  -cache: Dict<string, Dict>
+  -request_times: deque
+  -max_requests_per_hour: int
+  -executor: ThreadPoolExecutor
+  -geo_services: List<Dict>
+  
+  +get_location(ip: string): Dict
+  +record_threat_location(report: Dict): void
+  +get_attack_locations(filters: Dict): List[Dict]
+  +get_location_stats(): Dict
+  +_get_location_from_ipapi(ip: string): Dict
+  +_get_location_from_ipinfo(ip: string): Dict
+  +_is_private_ip(ip: string): bool
+  +_rate_limit_check(): bool
+  +_save_to_cache(ip: string, location_data: Dict): void
+}
+
+class ThreatLocation {
+  +ip: string
+  +country: string
+  +country_code: string
+  +region: string
+  +city: string
+  +lat: float
+  +lon: float
+  +isp: string
+  +org: string
+  +attack_count: int
+  +last_attack: string
+  +attack_types: List<string>
+  +risk_level: string
+}
+
+class GeoIPService {
+  +ip: string
+  +location_data: Dict
+  +cached_at: datetime
+}
+
+class AttackLocation {
+  +ip: string
+  +country: string
+  +region: string
+  +city: string
+  +lat: float
+  +lon: float
+  +attack_count: int
+  +last_attack: string
+  +attack_types: List<string>
+  +risk_score: float
+}
+
+class ReportFilter {
+  +model: string
+  +status: string
+  +type: string
+  +interface: string
+  +date_from: string
+  +date_to: string
+  +limit: int
+  +skip: int
+}
+
+class ExportService {
+  +export_to_csv(data: List[Dict]): Response
+  +export_to_json(data: List[Dict]): Response
+  +_format_csv_data(data: List[Dict]): str
+  +_format_json_data(data: List[Dict]): str
+}
+
+class StatisticsAggregator {
+  +aggregate_by_model(reports: List[Dict]): List[Dict]
+  +aggregate_by_status(reports: List[Dict]): List[Dict]
+  +aggregate_by_type(reports: List[Dict]): List[Dict]
+  +aggregate_by_interface(reports: List[Dict]): List[Dict]
+  +aggregate_by_date_range(reports: List[Dict], days: int): List[Dict]
+  +calculate_attack_rate(reports: List[Dict]): float
+  +calculate_model_accuracy(reports: List[Dict]): Dict
+}
+
+' Relationships
+ReportService o-- Report : manages
+ReportService --> ReportFilter : uses
+ReportService --> ExportService : uses
+ReportService --> StatisticsAggregator : uses
+
+GeoMapService o-- ThreatLocation : manages
+GeoMapService o-- AttackLocation : manages
+GeoMapService o-- GeoIPService : caches
+GeoMapService --> ThreatLocation : creates
+
+ThreatLocation --> AttackLocation : related_to
+Report --> ThreatLocation : may_trigger
+
+' Geographic services
+note right of GeoMapService
+  Supported geolocation services:
+  - ip-api.com (45 req/min)
+  - ipinfo.io (50k/month)
+  
+  Features:
+  - IP geolocation
+  - Threat clustering
+  - Risk assessment
+  - Rate limiting
+  - Caching system
+end note
+
+' Report statistics
+note right of ReportService
+  Statistics include:
+  - Model distribution
+  - Status distribution
+  - Type distribution
+  - Interface distribution
+  - Recent activity (24h)
+  - Attack rate calculation
+  - Model accuracy metrics
+end note
+
+@enduml
+
+

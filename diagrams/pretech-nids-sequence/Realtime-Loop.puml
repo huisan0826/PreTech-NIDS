@@ -1,0 +1,151 @@
+@startuml
+title PreTech-NIDS - Real-time Detection Loop
+hide circle
+autonumber
+
+participant "Network Interface" as Net
+participant "RealTimeDetector" as RTD
+participant "FeatureExtractor" as FE
+participant "ML Models" as ML
+participant "AlertManager" as AM
+participant "GeoMapService" as GMS
+participant "ReportService" as RS
+database "MongoDB" as DB
+participant "WebSocketManager" as WSM
+
+loop Continuous Packet Processing
+  Net -> RTD : Network packet data
+  activate RTD
+  
+  RTD -> RTD : packet_callback(packet)
+  
+  alt Packet filtering (blacklist, multicast, etc.)
+    RTD -> RTD : Skip noisy/broadcast traffic
+    RTD -> RTD : Continue to next packet
+  else Valid packet for analysis
+    RTD -> FE : extract_features(packet, model)
+    activate FE
+    
+    alt TCP packet
+      FE -> FE : Extract TCP features (7 features)
+      FE -> FE : sport, dport, flags, window, seq, ack
+    else UDP packet
+      FE -> FE : Extract UDP features (4 features)
+      FE -> FE : sport, dport, length
+    end
+    
+    FE -> FE : Extract IP features (4 features)
+    FE -> FE : ttl, id, frag, proto
+    
+    alt Model-specific feature preparation
+      alt Kitsune model
+        FE -> FE : Pad to 100 features
+      else Other models (AE, LSTM, CNN, RF)
+        FE -> FE : Pad to 77 features
+      end
+    end
+    
+    FE --> RTD : Feature vector (77 or 100 dimensions)
+    deactivate FE
+    
+    RTD -> RTD : detect_threat_all_models(features)
+    
+    par Parallel model execution
+      RTD -> ML : Kitsune.predict(features)
+      ML --> RTD : {prediction: "Attack", anomaly_score: 0.15}
+      
+      RTD -> ML : Autoencoder.predict(features)
+      ML --> RTD : {prediction: "Normal", anomaly_score: 0.8}
+      
+      RTD -> ML : LSTM.predict(features)
+      ML --> RTD : {prediction: "Attack", anomaly_score: 12.5}
+      
+      RTD -> ML : CNN.predict(features)
+      ML --> RTD : {prediction: "Normal", probability: 0.3}
+      
+      RTD -> ML : RF.predict(features)
+      ML --> RTD : {prediction: "Attack", probability: 0.85}
+    end
+    
+    RTD -> RTD : Aggregate results from all models
+    
+    alt Threat detected by any model
+      RTD -> RTD : save_threat_report(results, features, meta_info)
+      
+      RTD -> RS : Create detection report
+      activate RS
+      RS -> DB : Insert report {timestamp, model, features, result, type, interface}
+      DB --> RS : Report saved
+      RS --> RTD : Report created
+      deactivate RS
+      
+      RTD -> GMS : record_threat_location(report)
+      activate GMS
+      GMS -> GMS : Extract IP from meta_info
+      GMS -> GMS : Get geolocation data
+      GMS -> DB : Store threat location {ip, country, city, lat, lon, attack_count}
+      DB --> GMS : Location recorded
+      GMS --> RTD : Location recorded
+      deactivate GMS
+      
+      RTD -> AM : process_detection_for_alerts(report)
+      activate AM
+      AM -> AM : Check alert rules
+      AM -> AM : Generate alerts based on rules
+      
+      alt High confidence threat
+        AM -> AM : Create high-priority alert
+        AM -> WSM : broadcast_alert(alert)
+        activate WSM
+        WSM -> WSM : Send to all connected clients
+        WSM --> AM : Alert broadcasted
+        deactivate WSM
+      else Standard threat
+        AM -> AM : Create standard alert
+        AM -> WSM : broadcast_alert(alert)
+        activate WSM
+        WSM -> WSM : Send to all connected clients
+        WSM --> AM : Alert broadcasted
+        deactivate WSM
+      end
+      
+      AM --> RTD : Alerts processed
+      deactivate AM
+      
+      RTD -> RTD : Log threat detection
+      RTD -> RTD : Update packet count
+    else No threat detected
+      RTD -> RTD : Log normal traffic
+      RTD -> RTD : Update packet count
+    end
+    
+    RTD -> RTD : Continue monitoring
+  end
+  
+  deactivate RTD
+end
+
+note right of RTD
+  Real-time detection features:
+  - Multi-model parallel execution
+  - Intelligent packet filtering
+  - Feature extraction (TCP/UDP/IP)
+  - Model-specific feature preparation
+  - Comprehensive threat reporting
+  - Geographic threat mapping
+  - Real-time alert generation
+  - WebSocket notifications
+end note
+
+note right of ML
+  ML Models:
+  - Kitsune: 100 features, threshold 0.2
+  - Autoencoder: 77 features, threshold 1.0
+  - LSTM-AE: 77 features, threshold 10.0
+  - CNN-DNN: 77 features, probability-based
+  - Random Forest: 77 features, probability-based
+end note
+
+@enduml
+
+

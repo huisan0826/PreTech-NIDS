@@ -1,0 +1,723 @@
+@startuml PreTechNIDS_ClassDiagram
+
+' 隐藏类图标识符
+hide circle
+
+' Layout / style tweaks to reduce crossings and improve readability
+left to right direction
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 60
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam monochrome false
+
+' ----------------------------
+' Enumerations (extended)
+' ----------------------------
+enum UserRole {
+  SECURITY_ANALYST
+  SYSTEM_ADMINISTRATOR
+  REPORT_VIEWER
+}
+enum AlertType {
+  DDoS_ATTACK
+  PORT_SCAN
+  MALWARE_DETECTION
+  INTRUSION_ATTEMPT
+  SUSPICIOUS_ACTIVITY
+}
+enum SeverityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+enum AlertStatus {
+  NEW
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+enum ModelType {
+  LSTM_AUTOENCODER
+  CNN_DNN
+  RANDOM_FOREST
+  KITNET
+  KITSUNE
+}
+enum ModelStatus {
+  LOADED
+  TRAINING
+  EVALUATING
+  FAILED
+  RETIRED
+}
+enum ExportFormat {
+  CSV
+  JSON
+  PDF
+  XML
+}
+enum NetworkProtocol {
+  TCP
+  UDP
+  ICMP
+  HTTP
+  HTTPS
+}
+
+' ----------------------------
+' Helper / Result classes
+' ----------------------------
+class QueryResult {}
+class UpdateResult {}
+class InsertResult {}
+class DeleteResult {}
+class AggregateResult {}
+class Progress {}
+class FileInfo {}
+class ExportResult {}
+class DetectionStats {}
+class AnalysisReport {}
+class PCAPAnalysis {}
+class TrafficStats {}
+class Prediction {}
+class FeatureVector {}
+class ScheduleInfo {}
+class ModelTrainingResult {}
+class EvaluationResult {}
+class SystemStatus {}
+class PerformanceMetrics {}
+class Token {}
+class Session {}
+class Transaction {}
+class FilteredData {}
+class SortedData {}
+class SearchResult {}
+class FilteredData {}
+class TrendData {}
+class RiskScore {}
+class GlobalRisk {}
+class ClusterResult {}
+class RiskReport {}
+
+' ----------------------------
+' Package: User Management
+' ----------------------------
+package "User Management" {
+  class User {
+    + id: UUID
+    + username: string
+    + email: string
+    + passwordHash: string
+    + role: UserRole
+    + isActive: boolean
+    + isEmailVerified: boolean
+    + createdAt: DateTime
+    + updatedAt: DateTime
+    + lastLogin: DateTime
+    --
+    + authenticate(): Session
+    + updateProfile(data): void
+    + changePassword(oldPwd, newPwd): boolean
+    + deactivate(): void
+    + activate(): void
+  }
+
+  class SecurityAnalyst {
+    + specialization: string
+    + certifications: string[]
+    + assignedAlerts: Alert[]
+    --
+    + analyzeThreats(): AnalysisReport
+    + manageAlerts(): void
+    + generateReports(): Report
+    + performManualTesting(): DetectionStats
+    + uploadPCAP(file): PCAPAnalysis
+    + configureDetectionRules(rules): void
+  }
+
+  class SystemAdministrator {
+    + adminLevel: int
+    + systemAccess: string[]
+    --
+    + manageUsers(): void
+    + configureSystem(): void
+    + manageRules(): void
+    + monitorSystemHealth(): SystemStatus
+    + updateSystem(): void
+  }
+
+  class ReportViewer {
+    + viewPermissions: string[]
+    + exportPermissions: ExportFormat[]
+    --
+    + viewReports(): Report[]
+    + accessDashboard(): Dashboard
+    + exportData(format: ExportFormat): ExportResult
+    + searchReports(query): Report[]
+    + filterData(filters): Report[]
+  }
+}
+
+' ----------------------------
+' Package: Authentication
+' ----------------------------
+package "Authentication" {
+  class AuthenticationService {
+    + maxLoginAttempts: int
+    + lockoutDuration: int
+    + sessionTimeout: int
+    --
+    + login(username, password): Session
+    + logout(sessionId): void
+    + register(userData): User
+    + resetPassword(email): boolean
+    + verifyEmail(token): boolean
+    + verifyOTP(otp): boolean
+    + refreshToken(token): Token
+    + validateSession(sessionId): boolean
+  }
+
+  class EmailService {
+    + smtpConfig: Map
+    + emailTemplates: Map
+    --
+    + sendVerificationEmail(userId): void
+    + sendOTP(email): void
+    + sendPasswordResetEmail(email): void
+    + sendAlertNotification(alert): void
+    + sendReportEmail(reportId, recipients): void
+  }
+
+  class OTPService {
+    + otpLength: int
+    + otpExpiry: int
+    + maxAttempts: int
+    --
+    + generateOTP(userId): string
+    + verifyOTP(userId, otp): boolean
+    + resendOTP(userId): void
+    + invalidateOTP(userId): void
+  }
+}
+
+' ----------------------------
+' Package: Threat Detection
+' ----------------------------
+package "Threat Detection" {
+  class ThreatDetectionEngine {
+    + models: MLModel[]
+    + currentModel: MLModel
+    + detectionThreshold: float
+    + isRunning: boolean
+    + lastDetectionRun: DateTime
+    --
+    + detectThreats(traffic): Alert[]
+    + selectModel(modelId): void
+    + startDetection(): void
+    + stopDetection(): void
+    + updateThreshold(value: float): void
+    + getDetectionStats(): DetectionStats
+  }
+
+  class ModelManager {
+    + modelRegistry: Map<ModelType, MLModel>
+    + modelConfigs: Map
+    --
+    + loadModel(type: ModelType): MLModel
+    + trainModel(config): ModelTrainingResult
+    + evaluateModel(modelId, dataset): EvaluationResult
+    + updateModel(modelId, artifact): void
+    + getModelInfo(modelId): MLModel
+    + listAvailableModels(): MLModel[]
+  }
+
+  class FeatureExtractor {
+    + featureConfig: Map
+    + normalizationParams: Map
+    --
+    + extractFeatures(rawTraffic): FeatureVector
+    + normalizeFeatures(features): FeatureVector
+    + updateNormalizationParams(params): void
+    + getFeatureNames(): string[]
+    + getFeatureImportance(): Map
+  }
+
+  class MLModel {
+    + modelType: ModelType
+    + modelPath: string
+    + version: string
+    + accuracy: float
+    + lastTrained: DateTime
+    + status: ModelStatus
+    --
+    + predict(features): Prediction
+    + getModelMetadata(): Map
+    + isCompatible(features): boolean
+  }
+}
+
+' ----------------------------
+' Package: PCAP Analysis
+' ----------------------------
+package "PCAP Analysis" {
+  class PCAPAnalyzer {
+    + supportedFormats: string[]
+    + maxFileSize: int
+    + analysisTimeout: int
+    --
+    + analyzeFile(file): PCAPAnalysis
+    + validateFile(file): boolean
+    + extractTraffic(file): NetworkTraffic
+    + getFileInfo(file): FileInfo
+    + cleanup(tempId): void
+  }
+
+  class TrafficAnalyzer {
+    + analysisRules: string[]
+    + protocolHandlers: Map
+    --
+    + analyzeTraffic(traffic): TrafficStats
+    + detectAnomalies(traffic): Alert[]
+    + generateStatistics(traffic): TrafficStats
+    + exportAnalysis(format: ExportFormat): ExportResult
+  }
+
+  class ProtocolAnalyzer {
+    + supportedProtocols: NetworkProtocol[]
+    + protocolParsers: Map
+    --
+    + analyzeProtocol(packet): AnalysisReport
+    + extractHeaders(packet): Map
+    + detectProtocolViolations(packet): Alert[]
+    + getProtocolStatistics(): Map
+  }
+}
+
+' ----------------------------
+' Package: Alert Management
+' ----------------------------
+package "Alert Management" {
+  class Alert {
+    + id: UUID
+    + type: AlertType
+    + severity: SeverityLevel
+    + status: AlertStatus
+    + timestamp: DateTime
+    + description: string
+    + sourceIP: string
+    + destIP: string
+    + sourcePort: int
+    + destPort: int
+    + protocol: NetworkProtocol
+    +confidence: float
+    + assignedTo: User
+    + acknowledgedAt: DateTime
+    + resolvedAt: DateTime
+    + notes: string[]
+    --
+    + acknowledge(userId): void
+    + resolve(userId): void
+    + escalate(level): void
+    + addNote(note): void
+    +updateStatus(status: AlertStatus): void
+  }
+
+  class AlertService {
+    + alertRules: AlertRule[]
+    + notificationService: NotificationService
+    --
+    + createAlert(alertData): Alert
+    + updateAlert(alertId, data): Alert
+    + deleteAlert(alertId): DeleteResult
+    + getAlerts(filter): Alert[]
+    + acknowledgeAlert(alertId, userId): void
+    + resolveAlert(alertId, userId): void
+    + escalateAlert(alertId, level): void
+    + getAlertStatistics(): Map
+  }
+
+  class AlertRule {
+    + id: UUID
+    + name: string
+    + description: string
+    + conditions: Map
+    + actions: Map
+    + isActive: boolean
+    + priority: int
+    + createdBy: User
+    + createdAt: DateTime
+    --
+    + evaluate(context): boolean
+    + executeActions(alert): void
+    + enable(): void
+    + disable(): void
+    + updateConditions(conditions): void
+  }
+
+  class NotificationService {
+    + channels: NotificationType[]
+    + templates: Map
+    --
+    + sendNotification(notification): void
+    + sendBulkNotifications(list): void
+    + configureChannel(channel, config): void
+    + getNotificationHistory(filter): Progress
+  }
+}
+
+' ----------------------------
+' Package: Reporting
+' ----------------------------
+package "Reporting" {
+  class Report {
+    + id: UUID
+    + title: string
+    + description: string
+    + type: string
+    + content: string
+    + createdBy: User
+    + createdAt: DateTime
+    + updatedAt: DateTime
+    + isPublic: boolean
+    + tags: string[]
+    --
+    + generateContent(dataSource): void
+    + export(format: ExportFormat): ExportResult
+    + share(recipients): void
+    + updateContent(content): void
+    + addTag(tag): void
+  }
+
+  class ReportGenerator {
+    + templates: string[]
+    + dataSources: string[]
+    --
+    + generateReport(templateId, params): Report
+    + scheduleReport(cronExpr, templateId): ScheduleInfo
+    + generateCustomReport(query): Report
+    + getAvailableTemplates(): string[]
+  }
+
+  class ExportService {
+    + supportedFormats: ExportFormat[]
+    + exportConfigs: Map
+    --
+    + exportToCSV(data): FileInfo
+    + exportToJSON(data): FileInfo
+    + exportToPDF(data): FileInfo
+    + exportToXML(data): FileInfo
+    + getExportProgress(taskId): Progress
+  }
+
+  class DataFilter {
+    + filterRules: Map
+    + sortOptions: Map
+    --
+    + applyFilters(data, rules): FilteredData
+    + sortData(data, options): SortedData
+    + searchData(data, query): SearchResult
+    + getFilteredCount(data, rules): int
+  }
+}
+
+' ----------------------------
+' Package: Geographic Analysis
+' ----------------------------
+package "Geographic Analysis" {
+  class GeolocationService {
+    + apiKey: string
+    + cache: Map
+    + cacheExpiry: int
+    --
+    + getLocation(ip): LocationData
+    + getBulkLocations(ips): LocationData[]
+    + updateCache(ip, loc): void
+    + clearCache(): void
+    + getCacheStats(): Map
+  }
+
+  class AttackMap {
+    + locations: LocationData[]
+    + clusteringAlgorithm: string
+    + riskAssessment: RiskAssessmentService
+    --
+    + addAttackLocation(loc): void
+    + clusterAttacks(): ClusterResult
+    + calculateRiskScores(): RiskReport
+    + getHotspots(): LocationData[]
+    + exportMapData(format): FileInfo
+  }
+
+  class LocationData {
+    + ip: string
+    + country: string
+    + region: string
+    + city: string
+    + latitude: float
+    + longitude: float
+    + timezone: string
+    + isp: string
+    + organization: string
+    + accuracy: float
+  }
+
+  class RiskAssessmentService {
+    + riskFactors: Map
+    + riskWeights: Map
+    --
+    + assessRisk(loc: LocationData): RiskScore
+    + calculateGlobalRisk(): GlobalRisk
+    + updateRiskFactors(factors): void
+    + getRiskTrends(range): TrendData
+  }
+}
+
+' ----------------------------
+' Package: System Monitoring
+' ----------------------------
+package "System Monitoring" {
+  class Dashboard {
+    + widgets: Widget[]
+    + layout: Layout
+    + refreshInterval: int
+    --
+    + addWidget(widget): void
+    + removeWidget(widgetId): void
+    + updateLayout(layout): void
+    + refreshData(): void
+    + exportDashboard(format): FileInfo
+  }
+
+  class SystemMonitor {
+    + monitoringServices: string[]
+    + alerts: Alert[]
+    + metrics: Map
+    --
+    + startMonitoring(): void
+    + stopMonitoring(): void
+    + getSystemStatus(): SystemStatus
+    + getPerformanceMetrics(): PerformanceMetrics
+    + handleSystemAlert(alert): void
+  }
+
+  class NetworkInterface {
+    + name: string
+    + ipAddress: string
+    + macAddress: string
+    + status: string
+    + speed: int
+    + trafficStats: TrafficStats
+    --
+    + getStatus(): string
+    + getTrafficStats(): TrafficStats
+    + configureInterface(config): void
+    + monitorTraffic(): void
+  }
+
+  class Widget {
+    + id: UUID
+    + type: string
+    + config: Map
+    --
+    + render(): void
+    + refresh(): void
+  }
+
+  class Layout {
+    + columns: int
+    + rows: int
+    + positions: Map
+    --
+    + updateLayout(config): void
+    + serialize(): string
+  }
+
+  class StatisticsService {
+    + dataCollectors: DataCollector[]
+    + aggregators: Aggregator[]
+    --
+    + collectData(): void
+    + aggregateData(): AggregateResult
+    + getHistoricalData(range): TrendData
+    + generateReport(): Report
+  }
+}
+
+' ----------------------------
+' Package: Data Storage
+' ----------------------------
+package "Data Storage" {
+  class DatabaseService {
+    + connection: ConnectionInfo
+    + config: Map
+    --
+    + connect(): void
+    + disconnect(): void
+    + executeQuery(q): QueryResult
+    + executeUpdate(q): UpdateResult
+    + beginTransaction(): Transaction
+    + commitTransaction(tx): void
+    + rollbackTransaction(tx): void
+  }
+
+  class MongoDBService {
+    + client: MongoClient
+    + database: string
+    + collections: string[]
+    --
+    + connect(): void
+    + disconnect(): void
+    + insertDocument(col, doc): InsertResult
+    + findDocuments(col, query): Document[]
+    + updateDocument(col, query, doc): UpdateResult
+    + deleteDocument(col, query): DeleteResult
+    + createIndex(col, index): IndexResult
+    + aggregate(col, pipeline): AggregateResult
+  }
+
+  class CacheService {
+    + cache: Map
+    + maxSize: int
+    + ttl: int
+    --
+    + get(key): object
+    + set(key, value, ttl): void
+    + delete(key): void
+    + clear(): void
+    + getStats(): Map
+    + evictExpired(): void
+  }
+
+  class ConnectionInfo {
+    + uri: string
+    + user: string
+    + password: string
+    + options: Map
+  }
+
+  class MongoClient {
+    + uri: string
+    + options: Map
+    --
+    + connect(): void
+    + close(): void
+  }
+
+  class DataCollector {
+    + id: UUID
+    + source: string
+    --
+    + collect(): object
+  }
+
+  class Aggregator {
+    + id: UUID
+    + method: string
+    --
+    + aggregate(data): AggregateResult
+  }
+
+  class NetworkTraffic {
+    + packets: int
+    + bytes: long
+    + flows: int
+    + startTime: DateTime
+    + endTime: DateTime
+    --
+    + summary(): TrafficStats
+  }
+}
+
+' ----------------------------
+' Inheritance relationships
+' ----------------------------
+User <|-- SecurityAnalyst
+User <|-- SystemAdministrator
+User <|-- ReportViewer
+
+' ----------------------------
+' Composition relationships (whole *-- part)
+' ----------------------------
+ThreatDetectionEngine *-- ModelManager
+ThreatDetectionEngine *-- FeatureExtractor
+PCAPAnalyzer *-- TrafficAnalyzer
+PCAPAnalyzer *-- ProtocolAnalyzer
+AlertService *-- NotificationService
+ReportGenerator *-- ExportService
+Dashboard *-- SystemMonitor
+SystemMonitor *-- StatisticsService
+DatabaseService *-- MongoDBService
+
+' ----------------------------
+' Associations with multiplicity and labels
+' ----------------------------
+User "1" o-- "0..*" Alert : creates
+User "1" o-- "0..*" Report : creates
+User "1" o-- "0..*" AlertRule : creates
+User "1" o-- "0..*" Alert : assignedTo
+User "1" o-- "0..*" Alert : acknowledgedBy
+User "1" o-- "0..*" Alert : resolvedBy
+
+SecurityAnalyst "1" -- "0..*" PCAPAnalyzer : uses
+SecurityAnalyst "1" -- "0..*" ThreatDetectionEngine : uses
+SecurityAnalyst "1" -- "0..*" AlertService : uses
+SecurityAnalyst "1" -- "0..*" ReportGenerator : uses
+SecurityAnalyst "1" -- "0..*" Dashboard : monitors
+
+SystemAdministrator "1" -- "0..*" AlertRule : manages
+SystemAdministrator "1" -- "0..*" User : manages
+SystemAdministrator "1" -- "0..*" SystemMonitor : monitors
+
+ReportViewer "1" -- "0..*" Report : views
+ReportViewer "1" -- "0..1" Dashboard : accesses
+
+' ----------------------------
+' Data flow / Dependency arrows (explicit data flow labels)
+' ----------------------------
+PCAPAnalyzer --> ThreatDetectionEngine : provides NetworkTraffic
+PCAPAnalyzer --> TrafficAnalyzer : provides NetworkTraffic
+TrafficAnalyzer --> ThreatDetectionEngine : produces FeatureVector
+FeatureExtractor --> MLModel : provides features
+ThreatDetectionEngine --> DatabaseService : writes Alerts
+ThreatDetectionEngine --> AlertService : notifies (alerts)
+AlertService --> NotificationService : requests sendNotification
+AlertService --> ReportGenerator : produces Report (on demand)
+ReportGenerator --> ExportService : requests export
+ReportGenerator --> DatabaseService : reads/writes report metadata
+GeolocationService --> AttackMap : provides LocationData
+AttackMap --> ReportGenerator : provides geo-visual data
+
+' ----------------------------
+' Dependencies (structural)
+' ----------------------------
+AuthenticationService ..> EmailService
+AuthenticationService ..> OTPService
+ThreatDetectionEngine ..> MLModel
+ModelManager ..> MLModel
+PCAPAnalyzer ..> NetworkTraffic
+TrafficAnalyzer ..> NetworkTraffic
+ProtocolAnalyzer ..> NetworkTraffic
+AlertService ..> AlertRule
+AlertService ..> NotificationService
+ReportGenerator ..> DataFilter
+ExportService ..> DataFilter
+GeolocationService ..> LocationData
+AttackMap ..> GeolocationService
+AttackMap ..> RiskAssessmentService
+Dashboard ..> Widget
+SystemMonitor ..> MonitoringService
+StatisticsService ..> DataCollector
+DatabaseService ..> MongoDBService
+CacheService ..> CacheEntry
+
+' ----------------------------
+' Implementation
+' ----------------------------
+DatabaseService <|.. MongoDBService
+
+' End
+@enduml

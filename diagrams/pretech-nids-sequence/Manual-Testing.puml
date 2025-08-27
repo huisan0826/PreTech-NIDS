@@ -1,0 +1,53 @@
+@startuml
+title PreTech-NIDS - Manual Testing (/predict)
+hide circle
+autonumber
+
+actor U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant AUTH as "Auth Service"
+participant KITSUNE as "ML: Kitsune"
+participant AE as "ML: Autoencoder"
+participant LSTM as "ML: LSTM"
+participant CNN as "ML: CNN"
+participant RF as "ML: Random Forest"
+participant AS as "Alert System"
+participant GM as "GeoMap"
+database DB as "MongoDB"
+
+U -> FE : Open manual testing, input 77 features, select model
+FE -> BE : POST /predict {features, model} (JWT)
+activate BE
+BE -> AUTH : get_current_user_from_request()
+AUTH --> BE : user/role
+alt Has permission (manual_testing)
+  BE -> BE : proceed
+else Auth failure / compat allow
+  BE -> BE : proceed (compat)
+end
+
+alt Model chosen
+  BE -> KITSUNE : model_predict(features)  ' or AE/LSTM/CNN/RF
+  KITSUNE --> BE : {prediction, probability}
+else Unsupported
+  BE --> FE : {error: "Model not supported"}
+  deactivate BE
+  return
+end
+
+BE -> DB : Insert report {ts, model, features, result, type=manual_testing}
+DB --> BE : ack
+
+alt Attack
+  BE -> GM : record_threat_location(report)
+  GM --> BE : ack
+  BE -> AS : process_detection_for_alerts(report)
+  AS --> BE : ack
+end
+
+BE --> FE : {prediction, probability}
+deactivate BE
+@enduml
+
+

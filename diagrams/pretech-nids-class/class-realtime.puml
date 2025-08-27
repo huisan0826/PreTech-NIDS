@@ -1,0 +1,152 @@
+@startuml
+title PreTech-NIDS - Class Diagram (Real-time Detection)
+hide circle
+
+class RealTimeDetector {
+  -is_capturing: bool
+  -packet_count: int
+  -model: string
+  -models: List<string>
+  -interface: string
+  -use_all_models: bool
+  
+  +start_capture(interface: string, use_all_models: bool): void
+  +stop_capture(): void
+  +packet_callback(packet: Packet): void
+  +extract_features(packet: Packet, for_model: string): List<float>
+  +extract_meta_info(packet: Packet): Dict
+  +detect_threat_all_models(features: List<float>): List<Dict>
+  +save_threat_report(results: List[Dict], features: List<float>, meta_info: Dict): void
+}
+
+interface IModel {
+  +predict(features: List<float>): Dict
+}
+
+class KitsuneModel {
+  -model: object
+  -threshold: float
+  
+  +predict(features: List<float>): Dict
+  +execute(features: List<float>): float
+}
+
+class AutoencoderModel {
+  -model: keras.Model
+  -scaler: object
+  -threshold: float
+  
+  +predict(features: List<float>): Dict
+  +reconstruct(features: List<float>): List<float>
+}
+
+class LstmModel {
+  -model: keras.Model
+  -scaler: object
+  -threshold: float
+  
+  +predict(features: List<float>): Dict
+  +reshape_features(features: List<float>): List<float>
+}
+
+class CnnModel {
+  -model: keras.Model
+  -scaler: object
+  
+  +predict(features: List<float>): Dict
+  +preprocess_features(features: List<float>): List<float>
+}
+
+class RfModel {
+  -model: object
+  -scaler: object
+  
+  +predict(features: List<float>): Dict
+  +predict_proba(features: List<float>): List<float>
+}
+
+class PredictionResult {
+  +model: string
+  +prediction: string
+  +anomaly_score: float
+  +probability: float
+  +error: string
+}
+
+class NetworkPacket {
+  +src_ip: string
+  +dst_ip: string
+  +src_port: int
+  +dst_port: int
+  +protocol: string
+  +length: int
+  +flags: int
+  +window: int
+  +seq: int
+  +ack: int
+  +ttl: int
+  +id: int
+  +frag: int
+  +proto: int
+}
+
+class FeatureExtractor {
+  +extract_tcp_features(packet: Packet): List<float>
+  +extract_udp_features(packet: Packet): List<float>
+  +extract_ip_features(packet: Packet): List<float>
+  +normalize_features(features: List<float>): List<float>
+  +pad_features(features: List<float>, target_length: int): List<float>
+}
+
+class ThreatReport {
+  +timestamp: string
+  +model: string
+  +features: List<float>
+  +result: Dict
+  +type: string
+  +interface: string
+  +src_ip: string
+  +dst_ip: string
+  +dst_port: int
+  +protocol: string
+}
+
+' Relationships
+RealTimeDetector --> IModel : uses
+IModel <|.. KitsuneModel
+IModel <|.. AutoencoderModel
+IModel <|.. LstmModel
+IModel <|.. CnnModel
+IModel <|.. RfModel
+
+RealTimeDetector --> FeatureExtractor : uses
+RealTimeDetector --> NetworkPacket : processes
+RealTimeDetector --> ThreatReport : generates
+RealTimeDetector --> PredictionResult : produces
+
+FeatureExtractor --> NetworkPacket : extracts_from
+KitsuneModel --> PredictionResult : generates
+AutoencoderModel --> PredictionResult : generates
+LstmModel --> PredictionResult : generates
+CnnModel --> PredictionResult : generates
+RfModel --> PredictionResult : generates
+
+' Model configuration
+note right of RealTimeDetector
+  Supported models:
+  - Kitsune (100 features)
+  - Autoencoder (77 features)
+  - LSTM-AE (77 features)
+  - CNN-DNN (77 features)
+  - Random Forest (77 features)
+  
+  Features include:
+  - TCP/UDP port info
+  - IP layer details
+  - Packet metadata
+  - Protocol-specific flags
+end note
+
+@enduml
+
+

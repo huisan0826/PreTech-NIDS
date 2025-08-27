@@ -33,7 +33,8 @@
     '/register': Register,
     '/forgot-password': ForgotPassword,
     '/reset-password': ResetPassword,
-    '/verify-registration': VerifyRegistration
+    '/verify-registration': VerifyRegistration,
+
   };
 </script>
 

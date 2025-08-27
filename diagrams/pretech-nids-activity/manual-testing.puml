@@ -1,0 +1,80 @@
+@startuml
+title PreTech-NIDS - Manual Testing Activity
+hide circle
+
+start
+:User Opens Manual Testing Page;
+
+:Check User Permissions;
+if (Has Testing Permission?) then (yes)
+else (no)
+  :Show Permission Denied;
+  stop
+endif
+
+:User Inputs Feature Data;
+note right: 77-dimensional feature vector
+
+:User Selects ML Model;
+note right: Kitsune, AE, LSTM, CNN, RF
+
+:Validate Input Data;
+if (Data Valid?) then (yes)
+else (no)
+  :Show Validation Error;
+  :Return to Input;
+  stop
+endif
+
+:Send Prediction Request;
+
+:Parse User Authentication;
+if (Auth Token Valid?) then (yes)
+else (no)
+  :Check Compatibility Mode;
+  if (Allow Fallback?) then (yes)
+    :Continue Processing;
+  else (no)
+    :Return Auth Error;
+    stop
+  endif
+endif
+
+:Load Selected ML Model;
+if (Model Available?) then (yes)
+else (no)
+  :Return Model Error;
+  stop
+endif
+
+:Execute Model Prediction;
+
+:Process Prediction Results;
+
+:Store Test Report;
+note right: Include timestamp, model, features, result
+
+if (Attack Detected?) then (yes)
+  :Record Threat Location;
+  :Trigger Alert System;
+  :Generate Alert;
+else (no)
+  :Log Normal Result;
+endif
+
+:Return Prediction Results;
+
+:Display Results to User;
+
+:User Reviews Results;
+
+:User Takes Action;
+if (Action Required?) then (yes)
+  :Process User Action;
+  note right: Acknowledge, investigate, etc.
+else (no)
+  :Complete Testing;
+endif
+
+stop
+@enduml

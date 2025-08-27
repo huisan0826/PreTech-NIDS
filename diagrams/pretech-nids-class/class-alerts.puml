@@ -1,0 +1,126 @@
+@startuml
+title PreTech-NIDS - Class Diagram (Alert System)
+hide circle
+
+enum AlertLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum AlertType {
+  THREAT_DETECTED
+  ANOMALY_DETECTED
+  MULTIPLE_ATTACKS
+  SUSPICIOUS_IP
+  HIGH_RISK_PORT
+  ZERO_DAY_ATTACK
+  BRUTE_FORCE
+  SYSTEM_OVERLOAD
+}
+
+class AlertRule {
+  +id: string
+  +name: string
+  +description: string
+  +alert_type: AlertType
+  +conditions: Dict<string, Any>
+  +actions: List<string>
+  +enabled: bool
+  +threshold: float
+  +time_window: int
+  +created_at: string
+  +updated_at: string
+}
+
+class Alert {
+  +id: string
+  +rule_id: string
+  +alert_type: AlertType
+  +level: AlertLevel
+  +title: string
+  +message: string
+  +source_ip: string
+  +destination_ip: string
+  +target_port: int
+  +protocol: string
+  +model: string
+  +confidence: float
+  +threat_details: Dict
+  +timestamp: string
+  +acknowledged: bool
+  +acknowledged_by: string
+  +acknowledged_at: string
+  +resolved: bool
+  +resolved_by: string
+  +resolved_at: string
+  +attack_type: string
+}
+
+class AlertManager {
+  -active_connections: Set<WebSocket>
+  -alert_rules: Dict<string, AlertRule>
+  -recent_alerts: deque
+  -alert_counts: Dict<string, int>
+  -ip_alert_counts: Dict<string, int>
+  -port_alert_counts: Dict<int, int>
+  -ip_port_history: Dict<string, deque>
+  
+  +add_alert(alert: Alert): void
+  +process_detection(report: Dict): void
+  +get_alerts(filters: Dict): List<Alert>
+  +acknowledge_alert(alert_id: string, user: string): void
+  +resolve_alert(alert_id: string, user: string): void
+  +create_rule(rule: AlertRule): void
+  +update_rule(rule_id: string, updates: Dict): void
+  +delete_rule(rule_id: string): void
+  +_load_alert_rules(): void
+  +_create_default_rules(): void
+  +_start_cleanup_task(): void
+}
+
+class WebSocketManager {
+  -connections: Set<WebSocket>
+  
+  +connect(websocket: WebSocket): void
+  +disconnect(websocket: WebSocket): void
+  +broadcast_alert(alert: Alert): void
+  +send_personal_message(message: string, websocket: WebSocket): void
+}
+
+' Relationships
+AlertManager o-- Alert : manages
+AlertManager o-- AlertRule : configures
+AlertManager --> WebSocketManager : uses
+Alert --> AlertRule : triggered_by
+AlertRule --> AlertType : defines
+Alert --> AlertLevel : has
+
+' Default rules examples
+note right of AlertRule
+  Default rules include:
+  - Threat Detection Alert
+  - High Confidence Threat
+  - Multiple Attacks from Same IP
+  - Suspicious Port Access
+  - Zero-day Attack Detection
+  - Brute Force Attack
+  - Port Scan Detection
+  - DDoS Detection
+  - Suspicious Country Source
+  - Malware Traffic Pattern
+end note
+
+note right of WebSocketManager
+  Real-time notification:
+  - WebSocket connections for live updates
+  - Broadcast alerts to all connected clients
+  - Personal messages to specific users
+  - No email, SMS, or Slack integration
+end note
+
+@enduml
+
+

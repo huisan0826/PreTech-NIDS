@@ -1,0 +1,116 @@
+@startuml
+title PreTech-NIDS - Class Diagram (System Overview)
+hide circle
+
+package "Authentication & Authorization" {
+  class User
+  class Role
+  class Permission
+  class AuthService
+  class EmailService
+  class JWTService
+}
+
+package "Real-time Detection" {
+  class RealTimeDetector
+  class FeatureExtractor
+}
+
+package "Alert Management" {
+  class AlertManager
+  class Alert
+  class AlertRule
+  class WebSocketManager
+}
+
+package "Reports & Geographic Analysis" {
+  class ReportService
+  class Report
+  class GeoMapService
+  class ThreatLocation
+}
+
+package "Data Storage" {
+  class MongoClient
+  class Database
+  class Collection
+}
+
+package "PCAP Analysis" {
+  class PcapAnalyzer
+  class FeatureExtractor
+}
+
+package "User Management" {
+  class User
+  class Role
+  class Permission
+}
+
+' Core relationships
+User "1" --> "1" Role : has
+Role "*" --> "*" Permission : includes
+AuthService --> User : authenticates
+AuthService --> Role : validates
+AuthService --> Permission : checks
+
+RealTimeDetector --> FeatureExtractor : uses
+RealTimeDetector --> ReportService : reports_to
+RealTimeDetector --> AlertManager : triggers
+
+AlertManager o-- Alert : manages
+AlertManager o-- AlertRule : configures
+AlertManager --> WebSocketManager : uses
+Alert --> AlertRule : triggered_by
+
+ReportService o-- Report : manages
+GeoMapService o-- ThreatLocation : manages
+ReportService --> GeoMapService : uses
+
+MongoClient --> Database : connects_to
+Database o-- Collection : contains
+
+PcapAnalyzer --> FeatureExtractor : uses
+PcapAnalyzer --> ReportService : reports_to
+
+' Service dependencies
+AuthService --> JWTService : uses
+
+AlertManager --> ReportService : uses
+GeoMapService --> ThreatLocation : creates
+RealTimeDetector --> AlertManager : notifies
+
+' Data flow
+note right of RealTimeDetector
+  Real-time detection flow:
+  1. Capture network packets
+  2. Extract features (77-100 dimensions)
+  3. Run ML model predictions
+  4. Generate threat reports
+  5. Trigger alerts if threats detected
+  6. Record geographic locations
+end note
+
+note right of AlertManager
+  Alert processing:
+  1. Monitor detection results
+  2. Apply alert rules
+  3. Generate WebSocket notifications
+  4. Real-time broadcasting
+  5. Alert lifecycle management
+  6. No email/SMS integration
+end note
+
+note right of ReportService
+  Reporting capabilities:
+  1. Data aggregation
+  2. Statistical analysis
+  3. Filtering and search
+  4. CSV/JSON export
+  5. Pagination support
+  6. Real-time updates
+end note
+
+@enduml
+
+

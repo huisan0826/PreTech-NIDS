@@ -1,0 +1,77 @@
+@startuml
+title PreTech-NIDS - Alert Processing Activity
+hide circle
+
+start
+:Threat Detection Triggered;
+
+:Create Alert Record;
+
+:Assign Alert Priority;
+note right: Critical, High, Medium, Low
+
+:Apply Alert Rules;
+note right: Check conditions and thresholds
+
+:Determine Alert Type;
+note right: DDoS, Port Scan, Malware, etc.
+
+:Calculate Risk Score;
+
+:Store Alert in Database;
+
+:Record Threat Location;
+note right: IP geolocation
+
+:Send Alert Notifications;
+note right: WebSocket real-time broadcasting
+
+:Update Real-time Dashboard;
+
+:User Receives Alert;
+
+:User Reviews Alert Details;
+
+:User Takes Action;
+if (Action Type?) then (Acknowledge)
+  :Mark Alert as Acknowledged;
+  :Record Acknowledgment Time;
+  :Update Alert Status;
+elseif (Investigate)
+  :Mark Alert as In Progress;
+  :Assign to Security Analyst;
+  :Start Investigation Process;
+elseif (Resolve)
+  :Mark Alert as Resolved;
+  :Record Resolution Details;
+  :Update Alert Status;
+elseif (Escalate)
+  :Increase Alert Priority;
+  :Notify Higher Level Staff;
+  :Update Escalation Chain;
+endif
+
+:Update Alert History;
+
+:Store Action Log;
+
+:Check Related Alerts;
+if (Related Alerts Exist?) then (yes)
+  :Update Related Alert Status;
+  :Check Pattern Recognition;
+  if (Pattern Detected?) then (yes)
+    :Generate Pattern Alert;
+    :Update Risk Assessment;
+  else (no)
+    :Continue Processing;
+  endif
+else (no)
+  :Continue Processing;
+endif
+
+:Update System Metrics;
+
+:Alert Processing Complete;
+
+stop
+@enduml

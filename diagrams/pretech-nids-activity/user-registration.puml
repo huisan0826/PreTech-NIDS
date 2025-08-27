@@ -1,0 +1,98 @@
+@startuml
+title PreTech-NIDS - User Registration Activity
+hide circle
+
+start
+:User accesses registration page;
+
+:Display registration form;
+
+:User fills registration form;
+note right: Username, Email, Password, Confirm Password
+
+:Validate form inputs;
+if (All fields valid?) then (yes)
+else (no)
+  :Show validation errors;
+  :Return to registration form;
+  stop
+endif
+
+:Check username availability;
+if (Username available?) then (yes)
+else (no)
+  :Show "Username already taken" error;
+  :Return to registration form;
+  stop
+endif
+
+:Check email availability;
+if (Email available?) then (yes)
+else (no)
+  :Show "Email already registered" error;
+  :Return to registration form;
+  stop
+endif
+
+:Validate password strength;
+if (Password meets requirements?) then (yes)
+else (no)
+  :Show password strength error;
+  :Return to registration form;
+  stop
+endif
+
+:Check password confirmation;
+if (Passwords match?) then (yes)
+else (no)
+  :Show "Passwords don't match" error;
+  :Return to registration form;
+  stop
+endif
+
+:Send registration request;
+note right: POST /auth/register
+
+:Hash password with bcrypt;
+
+:Generate 6-digit OTP code;
+
+:Store verification record;
+note right: {email, username, hashed_password, otp_code, expires_at}
+
+:Send verification email;
+note right: SMTP service with OTP
+
+:Display "Verification email sent" message;
+
+:User receives email;
+
+:User enters OTP code;
+
+:Validate OTP code;
+note right: POST /auth/register/verify
+
+:Check OTP validity;
+if (OTP valid and not expired?) then (yes)
+else (no)
+  :Show "Invalid or expired OTP" error;
+  :Return to OTP input;
+  stop
+endif
+
+:Create user account;
+note right: Insert into users collection
+
+:Assign default role;
+note right: Usually "analyst" or "viewer"
+
+:Activate account;
+
+:Clean up verification record;
+
+:Display "Registration successful" message;
+
+:Redirect to login page;
+
+stop
+@enduml

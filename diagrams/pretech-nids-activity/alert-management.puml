@@ -1,0 +1,96 @@
+@startuml
+title PreTech-NIDS - Alert Management Activity
+hide circle
+
+start
+:User accesses alert management;
+
+:Check user permissions;
+if (Has alert management access?) then (yes)
+else (no)
+  :Show access denied message;
+  :Redirect to dashboard;
+  stop
+endif
+
+:Load alert list;
+note right: Get alerts from database
+
+:Display alerts with filters;
+note right: Status, Level, Type, Date range
+
+:User interacts with alerts;
+
+if (View alert details?) then (yes)
+  :User clicks on alert;
+  :Load alert information;
+  :Display threat details;
+  :Show network packet info;
+  :Show ML model prediction;
+  :Show geographic location;
+elseif (Acknowledge alert?) then (yes)
+  :User clicks acknowledge;
+  :Update alert status;
+  :Set acknowledged timestamp;
+  :Log acknowledgment action;
+  :Update alert count;
+elseif (Resolve alert?) then (yes)
+  :User clicks resolve;
+  :Enter resolution notes;
+  :Update alert status;
+  :Set resolved timestamp;
+  :Log resolution action;
+  :Update alert statistics;
+elseif (Create alert rule?) then (yes)
+  :User clicks create rule;
+  :Display rule creation form;
+  :User defines rule parameters;
+  note right: Condition, Threshold, Action
+  :Validate rule parameters;
+  if (Rule valid?) then (yes)
+    :Save rule to database;
+    :Activate rule;
+    :Show success message;
+  else (no)
+    :Show validation errors;
+    :Return to rule form;
+  endif
+elseif (Update alert rule?) then (yes)
+  :User selects rule to edit;
+  :Load rule parameters;
+  :User modifies rule;
+  :Validate updated rule;
+  if (Rule valid?) then (yes)
+    :Update rule in database;
+    :Show success message;
+  else (no)
+    :Show validation errors;
+    :Return to rule form;
+  endif
+elseif (Delete alert rule?) then (yes)
+  :User selects rule to delete;
+  :Show confirmation dialog;
+  if (User confirms?) then (yes)
+    :Delete rule from database;
+    :Show success message;
+  else (no)
+    :Cancel deletion;
+  endif
+elseif (Export alerts?) then (yes)
+  :User selects export option;
+  :Choose export format;
+  note right: CSV, JSON, PDF
+  :Apply current filters;
+  :Generate export file;
+  :Download file;
+else (no)
+  :No action;
+endif
+
+:Update alert display;
+note right: Real-time updates via WebSocket
+
+:Continue monitoring;
+
+stop
+@enduml

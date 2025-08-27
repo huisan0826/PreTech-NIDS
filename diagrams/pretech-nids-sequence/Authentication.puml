@@ -1,0 +1,22 @@
+@startuml
+title PreTech-NIDS - Authentication
+hide circle
+autonumber
+
+actor U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+database DB as "MongoDB"
+
+U -> FE : Open /login
+U -> FE : Enter credentials
+FE -> BE : POST /auth/login
+activate BE
+BE -> DB : Validate user
+DB --> BE : OK
+BE --> FE : 200 OK (JWT token)
+deactivate BE
+FE -> FE : Store token, redirect to /dashboard
+@enduml
+
+

@@ -17,6 +17,7 @@ from app.auth import router as auth_router
 from app.geomap import router as geomap_router, record_threat_location
 from app.pcap_analyzer import router as pcap_router
 from app.alert_system import router as alert_router, process_detection_for_alerts
+
 import threading
 import time
 from scapy.all import get_if_list, sniff
@@ -102,6 +103,7 @@ app.include_router(auth_router, prefix="/auth", tags=["authentication"])
 app.include_router(geomap_router, prefix="/api/geomap", tags=["geomap"])
 app.include_router(pcap_router, prefix="/api/pcap", tags=["pcap"])
 app.include_router(alert_router, prefix="/api/alerts", tags=["alerts"])
+
 
 # Add static file serving for uploads
 app.mount("/static", StaticFiles(directory="uploads"), name="static")
@@ -783,3 +785,8 @@ def get_realtime_status():
         "thread_status": thread_status,
         "status": "running" if is_capturing and thread_status == "running" else "stopped"
     }
+
+# Import new modules
+
+
+

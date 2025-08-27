@@ -1,0 +1,42 @@
+@startuml
+title PreTech-NIDS - Auth: Register & OTP Verify
+hide circle
+autonumber
+
+actor U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant EMAIL as "Email Service"
+database DB as "MongoDB"
+
+U -> FE : Open register page
+FE -> BE : POST /auth/register {username, email, password}
+activate BE
+BE -> BE : generate_otp_code()
+BE -> DB : Store in registration_verifications {email, username, hashed_password, otp_code, expires_at}
+DB --> BE : ack
+BE -> EMAIL : send_verification_email(email, otp_code, username)
+EMAIL --> U : Email with OTP code
+BE --> FE : "Verification code sent to email"
+deactivate BE
+
+U -> FE : Enter OTP code
+FE -> BE : POST /auth/register/verify {email, otp_code}
+activate BE
+BE -> DB : Find verification record {email, expires_at > now}
+DB --> BE : verification record
+alt OTP Valid & Not Expired
+  BE -> DB : Check if user exists
+  DB --> BE : user not found
+  BE -> DB : Create user in users collection
+  DB --> BE : user_id
+  BE -> DB : Delete verification record
+  BE --> FE : UserResponse {id, username, email, created_at}
+else OTP Invalid or Expired
+  BE --> FE : Error: "Invalid or expired verification code"
+end
+deactivate BE
+
+@enduml
+
+

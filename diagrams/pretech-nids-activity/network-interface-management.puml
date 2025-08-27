@@ -1,0 +1,104 @@
+@startuml
+title PreTech-NIDS - Network Interface Management Activity
+hide circle
+
+start
+:User accesses network interface management;
+
+:Check user permissions;
+if (Has network management access?) then (yes)
+else (no)
+  :Show access denied message;
+  :Redirect to dashboard;
+  stop
+endif
+
+:Initialize interface discovery;
+note right: System call to get network interfaces
+
+:Detect operating system;
+if (Windows?) then (yes)
+  :Use Windows-specific interface detection;
+  :Execute wmic nic get command;
+  :Parse interface information;
+  :Map GUID to friendly names;
+else (Linux/Mac)
+  :Use standard interface detection;
+  :Read /proc/net/dev or ifconfig;
+  :Parse interface information;
+endif
+
+:Collect interface details;
+note right: Name, Description, Status, IP addresses
+
+:Validate interface accessibility;
+note right: Check permissions, capabilities
+
+:Display available interfaces;
+note right: Show interface list with details
+
+:User interacts with interfaces;
+
+if (View interface details?) then (yes)
+  :User clicks on interface;
+  :Load detailed information;
+  :Display interface statistics;
+  :Show IP configuration;
+  :Show traffic statistics;
+  :Show interface status;
+elseif (Check interface status?) then (yes)
+  :User requests status check;
+  :Ping interface IP address;
+  :Check interface up/down status;
+  :Verify packet capture capability;
+  :Test interface permissions;
+  :Display status results;
+elseif (Start real-time detection?) then (yes)
+  :User selects interface for detection;
+  :Validate interface selection;
+  if (Interface valid and accessible?) then (yes)
+    :Check interface permissions;
+    if (Has capture permissions?) then (yes)
+      :Initialize packet capture;
+      :Start detection process;
+      :Update interface status;
+      :Show "Detection Active";
+    else (no)
+      :Show permission error;
+      :Suggest running as administrator;
+      :Return to interface selection;
+    endif
+  else (no)
+    :Show interface error;
+    :Return to interface selection;
+  endif
+elseif (Stop real-time detection?) then (yes)
+  :User requests stop detection;
+  :Stop packet capture;
+  :Clean up resources;
+  :Update interface status;
+  :Show "Detection Stopped";
+elseif (Refresh interface list?) then (yes)
+  :User clicks refresh;
+  :Re-scan network interfaces;
+  :Update interface list;
+  :Show refresh confirmation;
+elseif (Export interface information?) then (yes)
+  :User requests export;
+  :Choose export format;
+  note right: CSV, JSON, Text
+  :Generate interface report;
+  :Include status and statistics;
+  :Create export file;
+  :Download file;
+else (no)
+  :No action;
+endif
+
+:Update interface display;
+note right: Real-time status updates
+
+:Continue interface management;
+
+stop
+@enduml

@@ -1,0 +1,24 @@
+@startuml
+title PreTech-NIDS - Startup
+hide circle
+autonumber
+
+actor U as "User (Admin/Analyst)"
+participant BE as "Backend (FastAPI)"
+participant AS as "Alert System"
+database DB as "MongoDB"
+participant FE as "Frontend (Svelte)"
+
+U -> BE : Access application
+activate BE
+BE -> BE : on_startup() / load_thresholds()
+BE -> DB : Connect
+DB --> BE : OK
+BE -> AS : Initialize alert manager/rules
+AS --> BE : Ready
+BE --> FE : Backend ready
+deactivate BE
+FE -> FE : Load UI
+@enduml
+
+

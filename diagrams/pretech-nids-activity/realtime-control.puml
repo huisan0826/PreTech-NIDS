@@ -1,0 +1,113 @@
+@startuml
+title PreTech-NIDS - Real-time Detection Control Activity
+hide circle
+
+start
+:User accesses real-time detection;
+
+:Check user permissions;
+if (Has real-time detection access?) then (yes)
+else (no)
+  :Show access denied message;
+  :Redirect to dashboard;
+  stop
+endif
+
+:Load available network interfaces;
+note right: Get from system
+
+:Display interface selection;
+note right: Show interface names and descriptions
+
+:User selects network interface;
+if (Interface valid and accessible?) then (yes)
+else (no)
+  :Show interface error;
+  :Return to interface selection;
+  stop
+endif
+
+:Load available ML models;
+note right: Kitsune, Autoencoder, LSTM, CNN, RF
+
+:Display model selection;
+note right: Show model names and descriptions
+
+:User selects ML model;
+if (Model available and loaded?) then (yes)
+else (no)
+  :Show model error;
+  :Return to model selection;
+  stop
+endif
+
+:Check system resources;
+if (System resources sufficient?) then (yes)
+else (no)
+  :Show resource warning;
+  :Suggest alternative configuration;
+  :Return to configuration;
+  stop
+endif
+
+:User clicks start detection;
+
+:Initialize real-time detector;
+note right: Create detector instance
+
+:Configure packet capture;
+note right: Set interface, model, filters
+
+:Start packet capture thread;
+note right: Begin sniffing network traffic
+
+:Update detection status;
+note right: Set is_capturing = true
+
+:Display detection status;
+note right: Show "Detection Active"
+
+:Monitor detection process;
+
+if (User requests stop?) then (yes)
+  :User clicks stop detection;
+  :Show stop confirmation;
+  if (User confirms stop?) then (yes)
+    :Stop packet capture thread;
+    :Clean up resources;
+    :Update detection status;
+    note right: Set is_capturing = false
+    :Display stopped status;
+    :Show "Detection Stopped";
+  else (no)
+    :Continue detection;
+  endif
+elseif (System error occurs?) then (yes)
+  :Detect system error;
+  :Log error details;
+  :Stop detection automatically;
+  :Show error message;
+  :Update status to "Error";
+  :Offer restart option;
+elseif (Resource exhausted?) then (yes)
+  :Detect resource issues;
+  :Show resource warning;
+  :Suggest optimization;
+  :Continue with reduced performance;
+else (no)
+  :Continue packet capture;
+  :Process network packets;
+  :Extract features;
+  :Run ML model predictions;
+  :Generate threat reports;
+  :Update real-time statistics;
+  :Continue monitoring;
+endif
+
+:Update dashboard display;
+note right: Real-time status updates
+
+:Continue system operation;
+
+stop
+@enduml

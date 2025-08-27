@@ -27,8 +27,8 @@ rectangle "PreTech-NIDS System" {
         usecase "Logout" as UC_Logout #white
         usecase "Register" as UC_Register #white
         usecase "Email Verification" as UC_EmailVerif #white
-        usecase "Password Reset" as UC_PwdReset #white
         usecase "OTP Verification" as UC_OTPVerif #white
+        usecase "Password Reset" as UC_PwdReset #white
     }
 
     ' Threat Detection
@@ -95,13 +95,12 @@ rectangle "PreTech-NIDS System" {
         usecase "Change Password" as UC_ChangePwd #white
     }
 
-    ' System Monitoring
-    package "System Monitoring" {
+    ' Dashboard & Monitoring
+    package "Dashboard & Monitoring" {
         usecase "Dashboard Overview" as UC_Dashboard #white
         usecase "Network Interface Management" as UC_NetInterface #white
         usecase "Statistics Display" as UC_StatsDisplay #white
         usecase "Real-time Status" as UC_RealTimeStatus #white
-        usecase "System Health" as UC_SystemHealth #white
     }
 }
 
@@ -142,7 +141,6 @@ Admin --> UC_ManageUsers : <<uses>>
 Admin --> UC_ManageRules : <<uses>>
 Admin --> UC_DeleteUser : <<uses>>
 Admin --> UC_RoleAssignment : <<uses>>
-Admin --> UC_SystemHealth : <<uses>>
 Admin --> UC_NetInterface : <<uses>>
 
 Viewer --> UC_ViewReports : <<uses>>
@@ -151,8 +149,8 @@ Viewer --> UC_Dashboard : <<uses>>
 
 ' Secondary & Off-Stage Actor relationships (Right side) to use cases
 Email --> UC_EmailVerif : <<provides>>
-Email --> UC_PwdReset : <<provides>>
 Email --> UC_OTPVerif : <<provides>>
+Email --> UC_PwdReset : <<provides>>
 
 Geo --> UC_IPGeo : <<provides>>
 Geo --> UC_MapLocations : <<provides>>
@@ -204,13 +202,12 @@ UC_ProfileMgmt ..> UC_UpdateProfile : <<include>>
 UC_ProfileMgmt ..> UC_ChangePwd : <<include>>
 UC_Dashboard ..> UC_StatsDisplay : <<include>>
 UC_Dashboard ..> UC_RealTimeStatus : <<include>>
-UC_NetInterface ..> UC_SystemHealth : <<include>>
 
 ' Extend relationships - Different style dashed lines
 UC_Logout ..> UC_Login : <<extend>>
 UC_PwdReset ..> UC_EmailVerif : <<extend>>
+UC_PwdReset ..> UC_OTPVerif : <<extend>>
 UC_ManualTest ..> UC_ThreatAlert : <<extend>>
-UC_RealTime ..> UC_SystemHealth : <<extend>>
 UC_UploadPCAP ..> UC_ThreatAlert : <<extend>>
 UC_AnalyzeTraffic ..> UC_ThreatAlert : <<extend>>
 UC_ViewAlerts ..> UC_AckAlert : <<extend>>
@@ -238,5 +235,6 @@ note bottom of UC_MapLocations : Integrates with Geolocation Service
 note bottom of UC_ManualTest : Integrates with ML Models
 note bottom of UC_RealTime : Integrates with Network Traffic
 note bottom of UC_ViewReports : Integrates with MongoDB
+note bottom of UC_OTPVerif : Email-based OTP for registration & password reset
 
 @enduml

@@ -1,0 +1,163 @@
+@startuml
+title PreTech-NIDS - User Management Activity
+hide circle
+
+start
+:Admin accesses user management;
+
+:Check admin permissions;
+if (Has user management access?) then (yes)
+else (no)
+  :Show access denied message;
+  :Redirect to dashboard;
+  stop
+endif
+
+:Load user list;
+note right: Get all users from database
+
+:Display users with filters;
+note right: Role, Status, Search
+
+:Admin interacts with user management;
+
+if (View user details?) then (yes)
+  :Admin clicks on user;
+  :Load user information;
+  :Display user details;
+  :Show role and permissions;
+  :Show activity history;
+  :Show account status;
+elseif (Create new user?) then (yes)
+  :Admin clicks create user;
+  :Display user creation form;
+  :Admin fills user details;
+  note right: Username, Email, Password, Role
+  :Validate input format;
+  if (Input valid?) then (yes)
+    :Check username availability;
+    if (Username available?) then (yes)
+      :Check email availability;
+      if (Email available?) then (yes)
+        :Hash password;
+        :Create user account;
+        :Assign selected role;
+        :Send welcome email;
+        :Show success message;
+        :Refresh user list;
+      else (no)
+        :Show "Email already registered" error;
+        :Return to creation form;
+      endif
+    else (no)
+      :Show "Username already taken" error;
+      :Return to creation form;
+    endif
+  else (no)
+    :Show validation errors;
+    :Return to creation form;
+  endif
+elseif (Edit existing user?) then (yes)
+  :Admin selects user to edit;
+  :Load user data;
+  :Display edit form;
+  :Admin modifies user information;
+  :Validate updated data;
+  if (Data valid?) then (yes)
+    :Check uniqueness constraints;
+    if (Constraints satisfied?) then (yes)
+      :Update user in database;
+      :Log user modification;
+      :Show success message;
+      :Refresh user list;
+    else (no)
+      :Show constraint violation error;
+      :Return to edit form;
+    endif
+  else (no)
+    :Show validation errors;
+    :Return to edit form;
+  endif
+elseif (Change user role?) then (yes)
+  :Admin selects user;
+  :Display role selection;
+  :Admin chooses new role;
+  :Validate role assignment;
+  if (Role assignment valid?) then (yes)
+    :Update user role;
+    :Update permissions;
+    :Log role change;
+    :Show success message;
+  else (no)
+    :Show role assignment error;
+    :Return to role selection;
+  endif
+elseif (Enable/Disable user?) then (yes)
+  :Admin selects user;
+  :Check current status;
+  if (User currently active?) then (yes)
+    :Show disable confirmation;
+    if (Admin confirms?) then (yes)
+      :Disable user account;
+      :Log account deactivation;
+      :Show success message;
+    else (no)
+      :Cancel operation;
+    endif
+  else (no)
+    :Show enable confirmation;
+    if (Admin confirms?) then (yes)
+      :Enable user account;
+      :Log account activation;
+      :Show success message;
+    else (no)
+      :Cancel operation;
+    endif
+  endif
+elseif (Delete user?) then (yes)
+  :Admin selects user to delete;
+  :Show deletion confirmation;
+  if (Admin confirms?) then (yes)
+    :Delete user from database;
+    :Log user deletion;
+    :Show success message;
+    :Refresh user list;
+  else (no)
+    :Cancel deletion;
+  endif
+elseif (Bulk user operations?) then (yes)
+  :Admin selects multiple users;
+  :Choose bulk operation;
+  if (Bulk enable?) then (yes)
+    :Enable selected users;
+    :Update user status;
+    :Show success message;
+  elseif (Bulk disable?) then (yes)
+    :Disable selected users;
+    :Update user status;
+    :Show success message;
+  elseif (Bulk role change?) then (yes)
+    :Select new role for all;
+    :Update user roles;
+    :Show success message;
+  else (no)
+    :Cancel bulk operation;
+  endif
+elseif (Export user data?) then (yes)
+  :Admin requests export;
+  :Choose export format;
+  note right: CSV, JSON, PDF
+  :Apply current filters;
+  :Generate export file;
+  :Download file;
+else (no)
+  :No action;
+endif
+
+:Update user list display;
+note right: Real-time updates
+
+:Continue user management;
+
+stop
+@enduml

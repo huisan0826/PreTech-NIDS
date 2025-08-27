@@ -1,0 +1,82 @@
+@startuml
+title PreTech-NIDS - PCAP Analysis Activity
+hide circle
+
+start
+:User Uploads PCAP File;
+
+:Validate File Format;
+if (Format Valid?) then (yes)
+else (no)
+  :Show Format Error;
+  :Return to Upload;
+  stop
+endif
+
+:Check File Size;
+if (Size Acceptable?) then (yes)
+else (no)
+  :Show Size Error;
+  :Return to Upload;
+  stop
+endif
+
+:Scan for Malware;
+if (Malware Detected?) then (yes)
+  :Quarantine File;
+  :Show Security Warning;
+  stop
+else (no)
+  :Continue Processing;
+endif
+
+:Parse PCAP File;
+
+:Extract Packet Information;
+note right: Headers, payload, timestamps
+
+:Analyze Network Traffic;
+
+:Identify Protocols;
+note right: TCP, UDP, ICMP, HTTP, etc.
+
+:Extract Traffic Features;
+note right: Flow statistics, packet sizes, intervals
+
+:Detect Anomalies;
+if (Anomalies Found?) then (yes)
+  :Generate Anomaly Alerts;
+  :Record Suspicious Patterns;
+else (no)
+  :Continue Analysis;
+endif
+
+:Apply Detection Models;
+note right: Use trained ML models
+
+:Generate Traffic Statistics;
+
+:Create Analysis Report;
+
+:Store Results in Database;
+
+:Update Threat Intelligence;
+
+:Display Analysis Results;
+
+:User Reviews Results;
+
+:User Takes Action;
+if (Action Required?) then (yes)
+  :Process User Action;
+  note right: Export, investigate, etc.
+else (no)
+  :Complete Analysis;
+endif
+
+:Cleanup Temporary Files;
+
+:Analysis Complete;
+
+stop
+@enduml

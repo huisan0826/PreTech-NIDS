@@ -1,0 +1,20 @@
+@startuml
+title PreTech-NIDS - Realtime Detection (Stop)
+hide circle
+autonumber
+
+actor U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant NET as "Network Interface (Scapy)"
+
+U -> FE : Click Stop
+FE -> BE : POST /stop-realtime
+activate BE
+BE -> NET : stop_capture()
+NET --> BE : stopped
+BE --> FE : {status: stopped}
+deactivate BE
+@enduml
+
+

@@ -1,0 +1,31 @@
+@startuml
+title PreTech-NIDS - Alert Rules Management
+hide circle
+autonumber
+
+actor Admin as "Admin"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant AS as "Alert System"
+database DB as "MongoDB"
+
+Admin -> FE : Open alert rules page
+FE -> BE : GET /alert-rules
+BE -> DB : find rules
+DB --> BE : rules
+BE --> FE : rules
+
+Admin -> FE : Create/Update/Delete rule
+FE -> BE : POST/PUT/DELETE /alert-rules
+BE -> AS : validate & apply rule
+AS --> BE : ok/error
+alt ok
+  BE -> DB : persist changes
+  DB --> BE : ack
+  BE --> FE : success
+else error
+  BE --> FE : {error: details}
+end
+@enduml
+
+

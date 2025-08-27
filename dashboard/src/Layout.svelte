@@ -52,6 +52,8 @@
         baseNavItems.push({ name: 'alerts', label: 'Alert System', href: '/alerts', permission: 'view_alerts', icon: '🚨' });
       }
       
+
+      
       // Network Security feature removed
 
       navItems = baseNavItems;

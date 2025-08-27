@@ -1,0 +1,182 @@
+@startuml
+title PreTech-NIDS - Class Diagram (Data Access Layer)
+hide circle
+
+class MongoClientWrapper {
+  -client: MongoClient
+  -db: Database
+  -connection_string: string
+  
+  +connect(): void
+  +disconnect(): void
+  +get_database(): Database
+  +get_collection(name: string): Collection
+  +is_connected(): bool
+}
+
+class Database {
+  +name: string
+  +collections: Dict<string, Collection>
+  
+  +get_collection(name: string): Collection
+  +list_collections(): List[string]
+  +create_collection(name: string): Collection
+  +drop_collection(name: string): void
+}
+
+class Collection {
+  +name: string
+  +database: Database
+  
+  +insert_one(document: Dict): InsertOneResult
+  +insert_many(documents: List[Dict]): InsertManyResult
+  +find_one(filter: Dict): Dict
+  +find(filter: Dict): Cursor
+  +update_one(filter: Dict, update: Dict): UpdateResult
+  +update_many(filter: Dict, update: Dict): UpdateResult
+  +delete_one(filter: Dict): DeleteResult
+  +delete_many(filter: Dict): DeleteResult
+  +count_documents(filter: Dict): int
+  +aggregate(pipeline: List[Dict]): CommandCursor
+}
+
+class UserRepository {
+  -collection: Collection
+  
+  +create_user(user_data: Dict): str
+  +find_by_email(email: string): Dict
+  +find_by_username(username: string): Dict
+  +find_by_id(user_id: str): Dict
+  +update_user(user_id: str, updates: Dict): bool
+  +delete_user(user_id: str): bool
+  +find_all(limit: int, skip: int): List[Dict]
+  +count_users(): int
+  +find_by_role(role: string): List[Dict]
+}
+
+class AlertRepository {
+  -collection: Collection
+  
+  +create_alert(alert_data: Dict): str
+  +find_alert(alert_id: str): Dict
+  +find_alerts(filters: Dict, limit: int, skip: int): List[Dict]
+  +update_alert(alert_id: str, updates: Dict): bool
+  +delete_alert(alert_id: str): bool
+  +count_alerts(filters: Dict): int
+  +find_recent_alerts(hours: int): List[Dict]
+  +find_by_type(alert_type: str): List[Dict]
+  +find_by_level(level: str): List[Dict]
+}
+
+class ReportRepository {
+  -collection: Collection
+  
+  +create_report(report_data: Dict): str
+  +find_report(report_id: str): Dict
+  +find_reports(filters: Dict, limit: int, skip: int): List[Dict]
+  +update_report(report_id: str, updates: Dict): bool
+  +delete_report(report_id: str): bool
+  +count_reports(filters: Dict): int
+  +find_by_model(model: string): List[Dict]
+  +find_by_type(detection_type: string): List[Dict]
+  +find_by_interface(interface: string): List[Dict]
+  +find_by_date_range(start_date: str, end_date: str): List[Dict]
+}
+
+class AlertRuleRepository {
+  -collection: Collection
+  
+  +create_rule(rule_data: Dict): str
+  +find_rule(rule_id: str): Dict
+  +find_rules(enabled_only: bool): List[Dict]
+  +update_rule(rule_id: str, updates: Dict): bool
+  +delete_rule(rule_id: str): bool
+  +find_by_type(alert_type: str): List[Dict]
+  +find_enabled_rules(): List[Dict]
+}
+
+class GeoLocationRepository {
+  -collection: Collection
+  
+  +save_location(location_data: Dict): str
+  +find_location(ip: string): Dict
+  +update_location(ip: string, updates: Dict): bool
+  +find_attack_locations(): List[Dict]
+  +find_by_country(country: string): List[Dict]
+  +find_high_risk_locations(): List[Dict]
+}
+
+class PasswordResetRepository {
+  -collection: Collection
+  
+  +create_reset_request(email: string, otp: string): str
+  +find_reset_request(otp: string): Dict
+  +find_reset_by_email(email: string): Dict
+  +update_reset_request(reset_id: str, updates: Dict): bool
+  +delete_reset_request(reset_id: str): bool
+  +cleanup_expired_requests(): int
+}
+
+class RegistrationVerificationRepository {
+  -collection: Collection
+  
+  +create_verification(email: string, username: string, hashed_password: string, otp: string): str
+  +find_verification(email: string): Dict
+  +update_verification(verification_id: str, updates: Dict): bool
+  +delete_verification(email: string): bool
+  +cleanup_expired_verifications(): int
+}
+
+class DatabaseConnectionManager {
+  -connections: Dict[string, MongoClient]
+  -connection_pool_size: int
+  -max_connections: int
+  
+  +get_connection(database_name: string): MongoClient
+  +release_connection(database_name: string): void
+  +close_all_connections(): void
+  +get_connection_stats(): Dict
+  +_create_connection(database_name: string): MongoClient
+}
+
+' Relationships
+MongoClientWrapper --> Database : manages
+Database o-- Collection : contains
+Collection --> Database : belongs_to
+
+UserRepository --> Collection : uses
+AlertRepository --> Collection : uses
+ReportRepository --> Collection : uses
+AlertRuleRepository --> Collection : uses
+GeoLocationRepository --> Collection : uses
+PasswordResetRepository --> Collection : uses
+RegistrationVerificationRepository --> Collection : uses
+
+DatabaseConnectionManager --> MongoClientWrapper : manages
+
+' Repository pattern
+note right of UserRepository
+  Repository pattern provides:
+  - Data access abstraction
+  - CRUD operations
+  - Query optimization
+  - Connection management
+  - Error handling
+end note
+
+' Database collections
+note right of Collection
+  Main collections:
+  - users
+  - alerts
+  - alert_rules
+  - detection_reports
+  - attack_locations
+  - geo_cache
+  - password_resets
+  - registration_verifications
+end note
+
+@enduml
+
+

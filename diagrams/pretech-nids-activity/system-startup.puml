@@ -1,0 +1,136 @@
+@startuml
+title PreTech-NIDS - System Startup and Model Loading Activity
+hide circle
+
+start
+:PreTech-NIDS System Startup;
+
+:Initialize FastAPI application;
+note right: Create app instance
+
+:Configure CORS middleware;
+note right: Set allowed origins
+
+:Load environment variables;
+note right: .env file
+
+:Initialize logging system;
+note right: Configure log levels
+
+:Set up lifespan events;
+note right: Startup and shutdown handlers
+
+:Initialize database connection;
+note right: MongoDB connection
+
+:Test database connectivity;
+if (Database accessible?) then (yes)
+else (no)
+  :Log database connection error;
+  :Show connection warning;
+  :Continue with limited functionality;
+endif
+
+:Load system thresholds;
+note right: Load from model files
+
+:Load Kitsune model;
+if (Kitsune model available?) then (yes)
+  :Load Kitsune model from file;
+  :Validate model integrity;
+  :Set Kitsune threshold;
+  :Log successful loading;
+else (no)
+  :Log Kitsune loading failure;
+  :Set Kitsune to unavailable;
+endif
+
+:Load Autoencoder model;
+if (Autoencoder model available?) then (yes)
+  :Load AE model from file;
+  :Load AE scaler;
+  :Validate model integrity;
+  :Set AE threshold;
+  :Log successful loading;
+else (no)
+  :Log Autoencoder loading failure;
+  :Set Autoencoder to unavailable;
+endif
+
+:Load LSTM-AE model;
+if (LSTM model available?) then (yes)
+  :Load LSTM model from file;
+  :Load LSTM scaler;
+  :Validate model integrity;
+  :Set LSTM threshold;
+  :Log successful loading;
+else (no)
+  :Log LSTM loading failure;
+  :Set LSTM to unavailable;
+endif
+
+:Load CNN-DNN model;
+if (CNN model available?) then (yes)
+  :Load CNN model from file;
+  :Load CNN scaler;
+  :Validate model integrity;
+  :Log successful loading;
+else (no)
+  :Log CNN loading failure;
+  :Set CNN to unavailable;
+endif
+
+:Load Random Forest model;
+if (RF model available?) then (yes)
+  :Load RF model from file;
+  :Load RF scaler;
+  :Validate model integrity;
+  :Log successful loading;
+else (no)
+  :Log RF loading failure;
+  :Set RF to unavailable;
+endif
+
+:Initialize system services;
+note right: Alert system, Report system
+
+:Start alert system;
+note right: Initialize alert manager
+
+:Start report system;
+note right: Initialize report service
+
+:Initialize geographic services;
+note right: GeoMap service
+
+:Initialize PCAP analyzer;
+note right: PCAP processing service
+
+:Check system health;
+if (All critical services running?) then (yes)
+  :Set system status to "Online";
+  :Log system startup success;
+else (no)
+  :Set system status to "Degraded";
+  :Log service warnings;
+  :Continue with available services;
+endif
+
+:Mount static file directories;
+note right: Uploads, Static files
+
+:Register API routers;
+note right: Auth, Alerts, Reports, GeoMap, PCAP
+
+:Start FastAPI server;
+note right: Uvicorn server
+
+:Display startup completion message;
+note right: "🚀 PreTech NIDS application starting..."
+
+:System ready for requests;
+
+:Wait for incoming requests;
+
+stop
+@enduml

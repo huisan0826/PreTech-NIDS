@@ -1,0 +1,217 @@
+@startuml
+title PreTech-NIDS - Combined End-to-End Sequence Diagram
+autonumber
+
+actor U as "User (Admin/Analyst)"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend API (FastAPI)"
+participant AUTH as "Auth Service"
+participant NET as "Network Interface (Scapy)"
+participant GM as "GeoMap"
+participant AS as "Alert System"
+participant KITSUNE as "ML: Kitsune"
+participant AE as "ML: Autoencoder"
+participant LSTM as "ML: LSTM"
+participant CNN as "ML: CNN"
+participant RF as "ML: Random Forest"
+database DB as "MongoDB"
+participant WS as "WS Clients"
+
+== 1) Startup ==
+U -> BE : Access application
+activate BE
+BE -> BE : on_startup() / load_thresholds()
+BE -> DB : Connect
+DB --> BE : OK
+BE -> AS : Initialize alert manager/rules
+AS --> BE : Ready
+BE --> FE : Backend ready
+deactivate BE
+FE -> FE : Load UI
+
+== 2) Authentication ==
+U -> FE : Open /login
+U -> FE : Enter credentials
+FE -> BE : POST /auth/login
+activate BE
+BE -> DB : Validate credentials
+DB --> BE : OK
+BE --> FE : 200 OK (JWT token)
+deactivate BE
+FE -> FE : Store token, redirect to /dashboard
+
+== 3) Realtime Detection - Pre-checks ==
+FE -> BE : GET /interfaces
+BE --> FE : Interfaces list
+FE -> BE : GET /realtime-status
+BE --> FE : { status }
+
+== 3A) Realtime Detection - Start ==
+U -> FE : Select interface, model, use_all_models
+FE -> BE : POST /start-realtime {interface, model, use_all_models}
+activate BE
+BE -> NET : start_capture(interface)
+NET --> BE : capturing started
+BE --> FE : { status: running }
+deactivate BE
+
+== 3B) Realtime Detection - Loop ==
+loop For each captured packet
+  NET -> BE : packet_callback(packet)
+  BE -> BE : Extract features
+
+  alt Selected single model
+    BE -> KITSUNE : predict(features) [example]
+    KITSUNE --> BE : { prediction, probability }
+  else Selected AE
+    BE -> AE : predict(features)
+    AE --> BE : { prediction, probability }
+  else Selected LSTM
+    BE -> LSTM : predict(features)
+    LSTM --> BE : { prediction, probability }
+  else Selected CNN
+    BE -> CNN : predict(features)
+    CNN --> BE : { prediction, probability }
+  else Selected RF
+    BE -> RF : predict(features)
+    RF --> BE : { prediction, probability }
+  else Use all models
+    par Parallel predictions
+      BE -> KITSUNE : predict(features)
+      KITSUNE --> BE : {pred, prob}
+      BE -> AE : predict(features)
+      AE --> BE : {pred, prob}
+      BE -> LSTM : predict(features)
+      LSTM --> BE : {pred, prob}
+      BE -> CNN : predict(features)
+      CNN --> BE : {pred, prob}
+      BE -> RF : predict(features)
+      RF --> BE : {pred, prob}
+    end
+    BE -> BE : Fuse/Analyze ensemble results
+  end
+
+  alt Threat detected (Attack)
+    BE -> AS : process_detection_for_alerts(report)
+    AS -> DB : Persist alert
+    DB --> AS : ack
+    AS -> GM : record_threat_location(report)
+    GM --> AS : ack
+    AS -> WS : Broadcast alert
+  else Normal
+    BE -> DB : Insert detection report
+    DB --> BE : ack
+  end
+
+  BE --> FE : Realtime update (UI)
+end
+
+== 3C) Realtime Detection - Stop ==
+U -> FE : Click Stop
+FE -> BE : POST /stop-realtime
+activate BE
+BE -> NET : stop_capture()
+NET --> BE : stopped
+BE --> FE : { status: stopped }
+deactivate BE
+
+== 4) Manual Testing (/predict) ==
+U -> FE : Open /manual-testing
+U -> FE : Input 77 features + select model
+FE -> BE : POST /predict {features, model} (JWT)
+activate BE
+BE -> AUTH : get_current_user_from_request()
+AUTH --> BE : user/role
+alt Has permission (manual_testing)
+  BE -> BE : proceed
+else Auth failure / fallback allowed
+  BE -> BE : proceed (compat)
+end
+
+alt Model = Kitsune
+  BE -> KITSUNE : model_predict(features)
+  KITSUNE --> BE : { prediction, probability }
+else Model = AE
+  BE -> AE : model_predict(features)
+  AE --> BE : { prediction, probability }
+else Model = LSTM
+  BE -> LSTM : model_predict(features)
+  LSTM --> BE : { prediction, probability }
+else Model = CNN
+  BE -> CNN : model_predict(features)
+  CNN --> BE : { prediction, probability }
+else Model = RF
+  BE -> RF : model_predict(features)
+  RF --> BE : { prediction, probability }
+else Unsupported
+  BE --> FE : { error: "Model not supported" }
+  deactivate BE
+  return
+end
+
+BE -> DB : Insert report {timestamp, model, features, result, type=manual_testing}
+DB --> BE : ack
+
+alt Attack
+  BE -> GM : record_threat_location(report)
+  GM --> BE : ack
+  BE -> AS : process_detection_for_alerts(report)
+  AS --> BE : ack
+end
+
+BE --> FE : { prediction, probability }
+deactivate BE
+
+== 5) Alerts Lifecycle ==
+AS -> DB : Persist alert (create/update)
+DB --> AS : ack
+AS -> WS : Broadcast to clients
+WS --> FE : Push notification
+FE -> U : Show toast/alert
+U -> FE : View / Acknowledge / Resolve
+FE -> BE : POST /alerts/{id}/ack|resolve
+BE -> AS : Update alert state
+AS -> DB : Update record
+DB --> AS : ack
+AS --> BE : OK
+BE --> FE : OK
+
+== 6) Reports ==
+U -> FE : Request report
+FE -> BE : GET /reports?filters
+BE -> DB : Aggregate detections + alerts
+DB --> BE : data
+BE --> FE : report payload
+FE -> U : Render charts/tables
+
+== 7) User Management ==
+U -> FE : Open user management
+FE -> BE : List/Create/Update/Delete users
+BE -> DB : Query/Modify users
+DB --> BE : OK
+BE --> FE : Results
+FE -> U : Show feedback
+
+== 8) Error / Alternative Flows ==
+group Realtime start failure
+  FE -> BE : POST /start-realtime
+  BE --> FE : { error, available_interfaces }
+end
+
+group Prediction error / Unsupported model
+  FE -> BE : POST /predict
+  BE --> FE : { error: "..." }
+end
+
+group Permission denied
+  FE -> BE : Protected endpoints
+  BE --> FE : 403 (if compatibility disabled)
+end
+
+group DB / WS failures
+  Any -> DB : write/read
+  DB --> Any : error
+  Any --> FE : degrade gracefully
+end
+
+@enduml

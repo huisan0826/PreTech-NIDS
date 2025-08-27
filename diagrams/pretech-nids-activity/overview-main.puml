@@ -1,0 +1,161 @@
+@startuml
+title PreTech-NIDS - Main System Activity Overview
+hide circle
+
+start
+:PreTech-NIDS System Startup;
+
+:Initialize FastAPI Application;
+note right: Configure CORS, middleware, logging
+
+:Load Environment Variables;
+note right: Database config, API keys, thresholds
+
+:Initialize Database Connection;
+note right: MongoDB connection pool
+
+:Load Machine Learning Models;
+fork
+  :Load Kitsune Model;
+  :Set Kitsune Threshold;
+fork again
+  :Load Autoencoder Model;
+  :Load AE Scaler;
+  :Set AE Threshold;
+fork again
+  :Load LSTM-AE Model;
+  :Load LSTM Scaler;
+  :Set LSTM Threshold;
+fork again
+  :Load CNN-DNN Model;
+  :Load CNN Scaler;
+fork again
+  :Load Random Forest Model;
+  :Load RF Scaler;
+end fork
+
+:Initialize System Services;
+fork
+  :Start Alert System;
+  :Load Alert Rules;
+  :Initialize WebSocket Manager;
+fork again
+  :Start Report System;
+  :Initialize Statistics Aggregator;
+  :Initialize Export Service;
+fork again
+  :Start Geographic Service;
+  :Initialize IP Geolocation;
+  :Load Threat Location Cache;
+fork again
+  :Start PCAP Analyzer;
+  :Initialize File Processors;
+  :Initialize Batch Processors;
+end fork
+
+:Mount Static Directories;
+note right: Uploads, static files, assets
+
+:Register API Routers;
+note right: Auth, Alerts, Reports, GeoMap, PCAP
+
+:Start FastAPI Server;
+note right: Uvicorn with lifespan events
+
+:System Ready for Requests;
+
+:Continuous Operation Loop;
+fork
+  :User Authentication & Management;
+  :Login/Logout Processing;
+  :Password Management;
+  :OTP Verification;
+  :Role-based Access Control;
+  :User Profile Management;
+  :User CRUD Operations;
+fork again
+  :Real-time Threat Detection;
+  :Network Interface Management;
+  :Packet Capture & Filtering;
+  :Feature Extraction (77-100 dim);
+  :Multi-Model ML Prediction;
+  :Threat Classification;
+  :Alert Generation;
+  :Real-time Status Updates;
+fork again
+  :Manual Testing & Analysis;
+  :Feature Input Validation;
+  :Model Selection & Execution;
+  :Result Analysis & Display;
+  :Threat Report Generation;
+  :Geographic Location Recording;
+fork again
+  :PCAP File Analysis;
+  :File Upload & Validation;
+  :Traffic Analysis & Processing;
+  :Protocol Analysis;
+  :Batch Processing;
+  :Report Generation;
+  :Threat Classification;
+fork again
+  :Alert Management System;
+  :Alert Processing & Rules;
+  :WebSocket Broadcasting;
+  :Real-time Notifications;
+  :Alert Lifecycle Management;
+  :Escalation Handling;
+fork again
+  :Reporting & Analytics;
+  :Data Aggregation;
+  :Statistical Analysis;
+  :Chart & Graph Generation;
+  :Filtering & Search;
+  :Export Functions (CSV/JSON/PDF);
+  :Real-time Dashboard Updates;
+fork again
+  :Geographic Threat Analysis;
+  :IP Geolocation Services;
+  :Threat Location Mapping;
+  :Attack Clustering;
+  :Risk Assessment;
+  :Geographic Statistics;
+  :Location-based Filtering;
+fork again
+  :Dashboard & Monitoring;
+  :System Statistics Display;
+  :Real-time Status Monitoring;
+  :Network Interface Management;
+  :Performance Metrics;
+  :System Health Monitoring;
+  :Resource Usage Tracking;
+end fork
+
+:Monitor System Health;
+if (System Healthy?) then (yes)
+  :Continue Normal Operation;
+else (no)
+  :Log System Issues;
+  :Send Health Alerts;
+  :Attempt Recovery;
+  if (Recovery Successful?) then (yes)
+    :Resume Normal Operation;
+  else (no)
+    :Enter Degraded Mode;
+    :Continue with Limited Functionality;
+  endif
+endif
+
+:Check for Shutdown Signal;
+if (Shutdown Requested?) then (yes)
+  :Stop Real-time Detection;
+  :Save System State;
+  :Close Database Connections;
+  :Cleanup Resources;
+  :Graceful Shutdown;
+  stop
+else (no)
+  :Continue Operation Loop;
+endif
+
+stop
+@enduml

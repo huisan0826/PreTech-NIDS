@@ -1,0 +1,198 @@
+@startuml
+title PreTech-NIDS - Alert Lifecycle Management
+hide circle
+autonumber
+
+participant U as "User"
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant AM as "AlertManager"
+participant WSM as "WebSocketManager"
+database DB as "MongoDB"
+participant DS as "Detection System"
+
+' Alert Generation
+DS -> AM : process_detection_for_alerts(report)
+activate AM
+
+AM -> AM : Check alert rules
+AM -> AM : Evaluate conditions and thresholds
+
+alt Alert conditions met
+  AM -> AM : Create alert object
+  AM -> AM : Set alert level and type
+  AM -> AM : Generate alert message
+  
+  AM -> DB : Insert alert {id, rule_id, alert_type, level, title, message, source_ip, destination_ip, target_port, protocol, model, confidence, threat_details, timestamp, acknowledged: false, resolved: false}
+  activate DB
+  DB --> AM : Alert saved
+  deactivate DB
+  
+  AM -> AM : Update alert statistics
+  AM -> AM : Increment IP and port alert counts
+  
+  AM -> WSM : broadcast_alert(alert)
+  activate WSM
+  WSM -> WSM : Send to all connected WebSocket clients
+  WSM --> AM : Alert broadcasted
+  deactivate WSM
+  
+  AM -> AM : Log alert generation
+  AM --> DS : Alert processed successfully
+else No alert
+  AM --> DS : No alert needed
+end
+
+deactivate AM
+
+' Alert Acknowledgment
+U -> FE : View alert and acknowledge
+FE -> BE : POST /api/alerts/{alert_id}/acknowledge
+activate BE
+
+BE -> AM : acknowledge_alert(alert_id, user_id)
+activate AM
+
+AM -> DB : Update alert {acknowledged: true, acknowledged_by: user_id, acknowledged_at: timestamp}
+activate DB
+DB --> AM : Alert updated
+deactivate DB
+
+AM -> AM : Update alert statistics
+AM -> WSM : broadcast_alert_update(alert_id, "acknowledged")
+activate WSM
+WSM -> WSM : Send update to all clients
+WSM --> AM : Update broadcasted
+deactivate WSM
+
+AM --> BE : Alert acknowledged
+deactivate AM
+
+BE --> FE : Acknowledgment successful
+deactivate BE
+
+FE -> U : Show acknowledgment confirmation
+
+' Alert Resolution
+U -> FE : Mark alert as resolved
+FE -> BE : POST /api/alerts/{alert_id}/resolve
+activate BE
+
+BE -> AM : resolve_alert(alert_id, user_id, resolution_notes)
+activate AM
+
+AM -> DB : Update alert {resolved: true, resolved_by: user_id, resolved_at: timestamp, resolution_notes}
+activate DB
+DB --> AM : Alert updated
+deactivate DB
+
+AM -> AM : Update alert statistics
+AM -> AM : Check if all related alerts resolved
+AM -> WSM : broadcast_alert_update(alert_id, "resolved")
+activate WSM
+WSM -> WSM : Send update to all clients
+WSM --> AM : Update broadcasted
+deactivate WSM
+
+AM --> BE : Alert resolved
+deactivate AM
+
+BE --> FE : Resolution successful
+deactivate BE
+
+FE -> U : Show resolution confirmation
+
+' Alert Rule Management
+U -> FE : Create new alert rule
+FE -> BE : POST /api/alerts/rules
+activate BE
+
+BE -> AM : create_rule(rule_data)
+activate AM
+
+AM -> AM : Validate rule configuration
+AM -> AM : Generate unique rule ID
+
+AM -> DB : Insert rule {id, name, description, alert_type, conditions, actions, enabled, threshold, time_window}
+activate DB
+DB --> AM : Rule created
+deactivate DB
+
+AM -> AM : Reload alert rules
+AM -> AM : Apply new rule to existing data
+
+AM --> BE : Rule created successfully
+deactivate AM
+
+BE --> FE : Rule creation successful
+deactivate BE
+
+FE -> U : Show rule creation confirmation
+
+' Alert Rule Update
+U -> FE : Edit existing alert rule
+FE -> BE : PUT /api/alerts/rules/{rule_id}
+activate BE
+
+BE -> AM : update_rule(rule_id, updates)
+activate AM
+
+AM -> AM : Validate updated configuration
+AM -> DB : Update rule {name, description, alert_type, conditions, actions, enabled, threshold, time_window, updated_at}
+activate DB
+DB --> AM : Rule updated
+deactivate DB
+
+AM -> AM : Reload alert rules
+AM --> BE : Rule updated successfully
+deactivate AM
+
+BE --> FE : Rule update successful
+deactivate BE
+
+FE -> U : Show rule update confirmation
+
+' Alert Rule Deletion
+U -> FE : Delete alert rule
+FE -> BE : DELETE /api/alerts/rules/{rule_id}
+activate BE
+
+BE -> AM : delete_rule(rule_id)
+activate AM
+
+AM -> AM : Check rule dependencies
+AM -> DB : Delete rule by ID
+activate DB
+DB --> AM : Rule deleted
+deactivate DB
+
+AM -> AM : Reload alert rules
+AM --> BE : Rule deleted successfully
+deactivate AM
+
+BE --> FE : Rule deletion successful
+deactivate BE
+
+FE -> U : Show rule deletion confirmation
+
+note right of AM
+  Alert Manager capabilities:
+  - Real-time alert generation
+  - WebSocket broadcasting
+  - Alert lifecycle management
+  - Rule-based alerting
+  - Statistics tracking
+  - No email/SMS integration
+end note
+
+note right of WSM
+  WebSocket Manager:
+  - Manages active connections
+  - Broadcasts alerts to all clients
+  - Sends real-time updates
+  - Handles connection lifecycle
+end note
+
+@enduml
+
+

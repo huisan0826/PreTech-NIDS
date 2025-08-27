@@ -1,0 +1,22 @@
+@startuml
+title PreTech-NIDS - Realtime Detection (Status & Interfaces)
+hide circle
+autonumber
+
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+
+FE -> BE : GET /realtime-status
+BE --> FE : {status}
+
+FE -> BE : GET /interfaces
+BE --> FE : {interfaces: [name, desc, up]} 
+
+note right of FE
+UI decides which controls to enable:
+- Start if status != running
+- Show interface dropdown
+end note
+@enduml
+
+

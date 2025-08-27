@@ -1,0 +1,111 @@
+@startuml
+title PreTech-NIDS - User Profile Management Activity
+hide circle
+
+start
+:User accesses profile page;
+
+:Check user authentication;
+if (User authenticated?) then (yes)
+else (no)
+  :Redirect to login page;
+  stop
+endif
+
+:Load user profile data;
+note right: Get from database
+
+:Display profile information;
+note right: Username, Email, Role, Preferences
+
+:User interacts with profile;
+
+if (View profile details?) then (yes)
+  :User views profile information;
+  :Display account details;
+  :Show role and permissions;
+  :Show account creation date;
+  :Show last login time;
+elseif (Edit profile information?) then (yes)
+  :User clicks edit profile;
+  :Display editable form;
+  :User modifies information;
+  note right: Username, Email, Display name
+  :Validate input format;
+  if (Input valid?) then (yes)
+    :Check uniqueness;
+    if (Username/Email unique?) then (yes)
+      :Update profile in database;
+      :Show success message;
+      :Refresh profile display;
+    else (no)
+      :Show "Already taken" error;
+      :Return to edit form;
+    endif
+  else (no)
+    :Show validation errors;
+    :Return to edit form;
+  endif
+elseif (Change password?) then (yes)
+  :User clicks change password;
+  :Display password change form;
+  :User enters current password;
+  :Verify current password;
+  if (Current password correct?) then (yes)
+    :User enters new password;
+    :Validate password strength;
+    if (Password meets requirements?) then (yes)
+      :User confirms new password;
+      if (Passwords match?) then (yes)
+        :Hash new password;
+        :Update password in database;
+        :Show success message;
+        :Log password change;
+      else (no)
+        :Show "Passwords don't match" error;
+        :Return to password form;
+      endif
+    else (no)
+      :Show password strength error;
+      :Return to password form;
+    endif
+  else (no)
+    :Show "Current password incorrect" error;
+    :Return to password form;
+  endif
+elseif (Update preferences?) then (yes)
+  :User clicks edit preferences;
+  :Display preferences form;
+  :User modifies settings;
+  note right: Theme, Language, Timezone, Notifications
+  :Validate preference values;
+  if (Preferences valid?) then (yes)
+    :Update preferences in database;
+    :Apply new settings;
+    :Show success message;
+  else (no)
+    :Show validation errors;
+    :Return to preferences form;
+  endif
+elseif (View activity history?) then (yes)
+  :User clicks view history;
+  :Load user activity logs;
+  :Display login history;
+  :Show action history;
+  :Show system access logs;
+elseif (Export profile data?) then (yes)
+  :User requests profile export;
+  :Generate profile report;
+  :Include activity history;
+  :Create export file;
+  :Download file;
+else (no)
+  :No action;
+endif
+
+:Update profile display;
+
+:Continue using system;
+
+stop
+@enduml

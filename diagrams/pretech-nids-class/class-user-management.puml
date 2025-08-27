@@ -1,0 +1,203 @@
+@startuml
+title PreTech-NIDS - Class Diagram (User Management)
+hide circle
+
+enum UserRole {
+  admin
+  analyst
+  viewer
+}
+
+enum Permission {
+  manual_testing
+  real_time_detection
+  view_alerts
+  manage_alerts
+  manage_users
+  export_data
+  view_reports
+  manage_rules
+}
+
+class User {
+  +_id: ObjectId
+  +username: string
+  +email: string
+  +hashed_password: string
+  +role: string
+  +is_active: bool
+  +created_at: datetime
+  +updated_at: datetime
+  +last_login: datetime
+  +is_email_verified: bool
+}
+
+class UserProfile {
+  +username: string
+  +email: string
+  +role: string
+  +is_active: bool
+  +created_at: datetime
+  +updated_at: datetime
+  +last_login: datetime
+  +is_email_verified: bool
+}
+
+class Role {
+  +name: string
+  +description: string
+  +permissions: List<Permission>
+  +is_default: bool
+  +created_at: string
+  +updated_at: string
+}
+
+class Permission {
+  +key: string
+  +name: string
+  +description: string
+  +category: string
+  +is_system: bool
+}
+
+class UserService {
+  -user_repository: UserRepository
+  -password_context: CryptContext
+  
+  +create_user(user_data: Dict): User
+  +update_user(user_id: string, updates: Dict): User
+  +delete_user(user_id: string): bool
+  +get_user_by_id(user_id: string): User
+  +get_user_by_email(email: string): User
+  +get_user_by_username(username: string): User
+  +get_all_users(limit: int, skip: int): List[User]
+  +search_users(query: string, filters: Dict): List[User]
+  +change_password(user_id: string, old_password: string, new_password: string): bool
+  +reset_password(email: string): bool
+  +verify_password_reset(email: string, otp: string): bool
+  +complete_password_reset(email: string, new_password: string): bool
+  +lock_user_account(user_id: string, reason: string): bool
+  +unlock_user_account(user_id: string): bool
+  +deactivate_user(user_id: string): bool
+  +activate_user(user_id: string): bool
+}
+
+class RoleService {
+  -role_repository: RoleRepository
+  
+  +create_role(role_data: Dict): Role
+  +update_role(role_id: string, updates: Dict): Role
+  +delete_role(role_id: string): bool
+  +get_role_by_name(name: string): Role
+  +get_all_roles(): List[Role]
+  +assign_role_to_user(user_id: string, role_name: string): bool
+  +remove_role_from_user(user_id: string, role_name: string): bool
+  +get_users_by_role(role_name: string): List[User]
+  +get_default_role(): Role
+}
+
+class PermissionService {
+  -permission_repository: PermissionRepository
+  
+  +check_permission(user: User, permission: string): bool
+  +check_role_permission(role: string, permission: string): bool
+  +get_user_permissions(user: User): List<Permission>
+  +get_role_permissions(role_name: string): List<Permission>
+  +grant_permission_to_role(role_name: string, permission: string): bool
+  +revoke_permission_from_role(role_name: string, permission: string): bool
+  +get_all_permissions(): List[Permission]
+  +create_permission(permission_data: Dict): Permission
+}
+
+class AuthenticationService {
+  -user_service: UserService
+  -jwt_secret: string
+  -jwt_algorithm: string
+  -access_token_expire_minutes: int
+  
+  +authenticate_user(username_or_email: string, password: string): User
+  +create_access_token(data: Dict): string
+  +verify_token(token: string): Dict
+  +get_current_user(request: Request): User
+  +refresh_token(refresh_token: string): string
+  +logout_user(user_id: string): bool
+  +validate_credentials(username: string, password: string): bool
+  +hash_password(password: string): string
+  +verify_password(plain_password: string, hashed_password: string): bool
+}
+
+class EmailVerificationService {
+  -email_service: EmailService
+  -verification_repository: RegistrationVerificationRepository
+  
+  +send_verification_email(email: string, username: string): bool
+  +verify_registration(email: string, otp: string): User
+  +resend_verification_email(email: string): bool
+  +cleanup_expired_verifications(): int
+  +generate_otp_code(): string
+  +_create_verification_record(email: string, username: string, hashed_password: string, otp: string): str
+}
+
+class PasswordResetService {
+  -email_service: EmailService
+  -reset_repository: PasswordResetRepository
+  -user_service: UserService
+  
+  +initiate_password_reset(email: string): bool
+  +verify_reset_otp(otp: string): bool
+  +complete_password_reset(email: string, new_password: string): bool
+  +resend_reset_otp(email: string): bool
+  +cleanup_expired_resets(): int
+  +_validate_password_strength(password: string): bool
+  +_is_strong_password(password: string): bool
+}
+
+' Relationships
+User "1" --> "1" UserProfile : has
+User "1" --> "1" Role : has
+Role "*" --> "*" Permission : includes
+
+UserService o-- User : manages
+UserService --> UserRepository : uses
+UserService --> PasswordResetService : uses
+
+RoleService o-- Role : manages
+RoleService --> RoleRepository : uses
+
+PermissionService o-- Permission : manages
+PermissionService --> PermissionRepository : uses
+
+AuthenticationService --> UserService : uses
+AuthenticationService --> RoleService : uses
+AuthenticationService --> PermissionService : uses
+
+EmailVerificationService --> EmailService : uses
+EmailVerificationService --> RegistrationVerificationRepository : uses
+
+PasswordResetService --> EmailService : uses
+PasswordResetService --> PasswordResetRepository : uses
+PasswordResetService --> UserService : uses
+
+' Default roles and permissions
+note right of Role
+  Default roles:
+  - admin: All permissions
+  - analyst: manual_testing, real_time_detection, view_alerts, view_reports
+  - viewer: view_alerts, view_reports
+end note
+
+note right of Permission
+  System permissions:
+  - manual_testing: Use manual testing feature
+  - real_time_detection: Start/stop real-time detection
+  - view_alerts: View security alerts
+  - manage_alerts: Acknowledge/resolve alerts
+  - manage_users: CRUD operations on users
+  - export_data: Export reports and data
+  - view_reports: Access detection reports
+  - manage_rules: Configure alert rules
+end note
+
+@enduml
+
+

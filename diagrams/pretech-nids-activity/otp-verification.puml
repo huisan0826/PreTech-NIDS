@@ -1,0 +1,59 @@
+@startuml
+title PreTech-NIDS - OTP Verification Activity
+hide circle
+
+start
+:User Requests OTP;
+
+if (OTP Type?) then (Registration)
+  :Generate Registration OTP;
+  :Send Email with OTP Code;
+  :Store OTP in Database;
+  :Set 10-minute Expiry;
+else (Password Reset)
+  :Generate Password Reset OTP;
+  :Send Email with OTP Code;
+  :Store OTP in Database;
+  :Set 10-minute Expiry;
+endif
+
+:User Receives Email;
+
+:User Enters OTP Code;
+
+:Validate OTP Code;
+if (OTP Valid?) then (yes)
+  if (Not Expired?) then (yes)
+    if (Registration OTP?) then (yes)
+      :Create User Account;
+      :Activate Account;
+      :Clean Up OTP Record;
+      :Redirect to Login;
+    else (Password Reset OTP)
+      :Allow Password Reset;
+      :Clean Up OTP Record;
+      :Redirect to New Password;
+    endif
+  else (expired)
+    :Show Expired Message;
+    :Request New OTP;
+    stop
+  endif
+else (no)
+  :Increment Attempts;
+  if (Max Attempts Reached?) then (yes)
+    :Lock OTP Session;
+    :Show Locked Message;
+    :Request New OTP;
+    stop
+  else (no)
+    :Show Invalid OTP;
+    :Allow Retry;
+    stop
+  endif
+endif
+
+:OTP Verification Complete;
+
+stop
+@enduml

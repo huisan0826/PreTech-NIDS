@@ -1,0 +1,181 @@
+@startuml
+title PreTech-NIDS - PCAP Analysis
+hide circle
+autonumber
+
+actor "User" as U
+participant "Frontend (Svelte)" as FE
+participant "Backend (FastAPI)" as BE
+participant "PcapAnalyzer" as PA
+participant "FeatureExtractor" as FE
+participant "ML Models" as ML
+participant "AlertManager" as AM
+participant "GeoMapService" as GMS
+participant "ReportService" as RS
+database "MongoDB" as DB
+
+U -> FE : Upload PCAP file
+FE -> BE : POST /api/pcap/upload {file, model_selection}
+activate BE
+
+BE -> PA : validate_file(file)
+activate PA
+PA -> PA : Check file extension (.pcap, .pcapng, .cap)
+PA -> PA : Check file size (max 100MB)
+PA -> PA : Check file content (not empty)
+alt File validation failed
+  PA --> BE : {valid: false, error: "Invalid file"}
+  BE --> FE : HTTP 400 Bad Request
+  deactivate PA
+  deactivate BE
+  return
+end
+PA --> BE : {valid: true, message: "File validation passed"}
+deactivate PA
+
+BE -> PA : calculate_file_hash(file_path)
+activate PA
+PA -> PA : Generate SHA-256 hash
+PA --> BE : file_hash
+deactivate PA
+
+BE -> PA : analyze_pcap_file(file_path, model_selection)
+activate PA
+
+PA -> PA : Load ML models if not loaded
+PA -> PA : Initialize ThreadPoolExecutor (4 workers)
+
+PA -> PA : Process PCAP file with Scapy
+PA -> PA : Extract packets and metadata
+
+loop For each packet in PCAP
+  PA -> FE : extract_features(packet, model)
+  activate FE
+  
+  alt TCP packet
+    FE -> FE : Extract TCP features (7 features)
+    FE -> FE : sport, dport, flags, window, seq, ack
+  else UDP packet
+    FE -> FE : Extract UDP features (4 features)
+    FE -> FE : sport, dport, length
+  end
+  
+  FE -> FE : Extract IP features (4 features)
+  FE -> FE : ttl, id, frag, proto
+  
+  alt Model-specific feature preparation
+    alt Kitsune model
+      FE -> FE : Pad to 100 features
+    else Other models (AE, LSTM, CNN, RF)
+      FE -> FE : Pad to 77 features
+    end
+  end
+  
+  FE --> PA : Feature vector (77 or 100 dimensions)
+  deactivate FE
+  
+  PA -> ML : model_predict(features, model)
+  activate ML
+  
+  alt Model prediction
+    alt Kitsune
+      ML -> ML : Execute model with features
+      ML --> PA : {prediction: "Attack", anomaly_score: 0.15}
+    else Autoencoder
+      ML -> ML : Reconstruct and calculate MSE
+      ML --> PA : {prediction: "Attack", anomaly_score: 1.2}
+    else LSTM
+      ML -> ML : Reshape to (1, 10, 77) and predict
+      ML --> PA : {prediction: "Normal", anomaly_score: 8.5}
+    else CNN
+      ML -> ML : Preprocess and predict
+      ML --> PA : {prediction: "Attack", probability: 0.75}
+    else Random Forest
+      ML -> ML : Transform features and predict
+      ML --> PA : {prediction: "Normal", probability: 0.3}
+    end
+  else Model error
+    ML --> PA : {error: "Model not loaded or failed"}
+  end
+  
+  deactivate ML
+  
+  PA -> PA : Store packet analysis result
+end
+
+PA -> PA : Aggregate all packet results
+PA -> PA : Generate comprehensive analysis report
+
+PA --> BE : Analysis complete with results
+deactivate PA
+
+BE -> RS : Create PCAP analysis report
+activate RS
+RS -> DB : Insert report {timestamp, file_hash, model, results, summary}
+DB --> RS : Report saved
+RS --> BE : Report created
+deactivate RS
+
+alt Threats detected
+  BE -> GMS : record_threat_locations(report)
+  activate GMS
+  GMS -> GMS : Extract IPs from threat results
+  GMS -> GMS : Get geolocation for each IP
+  GMS -> DB : Store threat locations
+  DB --> GMS : Locations recorded
+  GMS --> BE : Locations recorded
+  deactivate GMS
+  
+  BE -> AM : process_detection_for_alerts(report)
+  activate AM
+  AM -> AM : Check alert rules
+  AM -> AM : Generate alerts for threats
+  AM --> BE : Alerts processed
+  deactivate AM
+end
+
+BE -> BE : Clean up temporary files
+BE --> FE : Analysis results with report_id
+deactivate BE
+
+FE -> U : Display analysis results
+
+' Optional: Get detailed report
+U -> FE : View detailed report
+FE -> BE : GET /api/pcap/report/{report_id}
+activate BE
+BE -> RS : get_pcap_report(report_id)
+activate RS
+RS -> DB : Find report by ID
+DB --> RS : Report data
+RS --> BE : Report data
+deactivate RS
+BE --> FE : Detailed report
+deactivate BE
+
+FE -> U : Display detailed report
+
+note right of PA
+  PCAP Analysis Features:
+  - File validation (type, size, content)
+  - SHA-256 hash generation
+  - Multi-threaded processing
+  - Comprehensive feature extraction
+  - Multi-model support
+  - Threat detection and alerting
+  - Geographic threat mapping
+  - Detailed reporting
+end note
+
+note right of ML
+  Supported Models:
+  - Kitsune: Anomaly detection
+  - Autoencoder: Reconstruction error
+  - LSTM-AE: Sequence anomaly
+  - CNN-DNN: Binary classification
+  - Random Forest: Probability-based
+end note
+
+@enduml
+
+

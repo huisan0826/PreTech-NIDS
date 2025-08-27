@@ -1,0 +1,26 @@
+@startuml
+title PreTech-NIDS - Manual Testing: Error Flows
+hide circle
+autonumber
+
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant AUTH as "Auth Service"
+
+FE -> BE : POST /predict {features, model}
+BE -> AUTH : get_current_user_from_request()
+AUTH --> BE : error / no token
+alt Permission denied (strict)
+  BE --> FE : 403
+else Compatibility allow
+  BE -> BE : proceed
+end
+
+alt Unsupported model
+  BE --> FE : {error: "Model not supported"}
+else Prediction error
+  BE --> FE : {error: "Prediction error: ..."}
+end
+@enduml
+
+

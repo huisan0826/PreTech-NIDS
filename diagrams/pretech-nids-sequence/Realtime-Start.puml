@@ -1,0 +1,23 @@
+@startuml
+title PreTech-NIDS - Realtime Detection (Start)
+hide circle
+autonumber
+
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant NET as "Network Interface (Scapy)"
+
+FE -> BE : GET /interfaces (optional)
+BE --> FE : Interfaces list
+FE -> BE : GET /realtime-status
+BE --> FE : {status}
+
+FE -> BE : POST /start-realtime {interface, model, use_all_models}
+activate BE
+BE -> NET : start_capture(interface)
+NET --> BE : capturing started
+BE --> FE : {status: running}
+deactivate BE
+@enduml
+
+

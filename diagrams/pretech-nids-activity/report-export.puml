@@ -1,0 +1,119 @@
+@startuml
+title PreTech-NIDS - Report Export Activity
+hide circle
+
+start
+:User accesses reporting system;
+
+:Check user permissions;
+if (Has report access?) then (yes)
+else (no)
+  :Show access denied message;
+  :Redirect to dashboard;
+  stop
+endif
+
+:Load report options;
+note right: Available report types
+
+:Display report generation form;
+
+:User selects report type;
+if (Detection Reports?) then (yes)
+  :User selects detection reports;
+  :Show detection report options;
+  :Choose time range;
+  :Select ML models;
+  :Choose threat types;
+elseif (Alert Reports?) then (yes)
+  :User selects alert reports;
+  :Show alert report options;
+  :Choose alert levels;
+  :Select alert status;
+  :Choose date range;
+elseif (User Activity Reports?) then (yes)
+  :User selects user activity;
+  :Show user activity options;
+  :Choose user roles;
+  :Select activity types;
+  :Choose time period;
+elseif (System Performance Reports?) then (yes)
+  :User selects system performance;
+  :Show performance metrics;
+  :Choose performance indicators;
+  :Select monitoring period;
+elseif (Geographic Analysis Reports?) then (yes)
+  :User selects geographic reports;
+  :Show location-based options;
+  :Choose threat locations;
+  :Select geographic regions;
+else (no)
+  :No report type selected;
+endif
+
+:User sets report parameters;
+note right: Filters, Date ranges, Aggregations
+
+:User clicks generate report;
+
+:Validate report parameters;
+if (Parameters valid?) then (yes)
+else (no)
+  :Show validation errors;
+  :Return to report form;
+  stop
+endif
+
+:Process report request;
+note right: Query database, aggregate data
+
+:Generate report data;
+note right: Apply filters and aggregations
+
+:User selects export format;
+if (CSV Export?) then (yes)
+  :User chooses CSV format;
+  :Format data as CSV;
+  :Generate CSV file;
+  :Set filename with timestamp;
+elseif (JSON Export?) then (yes)
+  :User chooses JSON format;
+  :Format data as JSON;
+  :Generate JSON file;
+  :Set filename with timestamp;
+elseif (PDF Export?) then (yes)
+  :User chooses PDF format;
+  :Generate PDF template;
+  :Add report data;
+  :Include charts and graphs;
+  :Generate PDF file;
+else (no)
+  :No export format selected;
+endif
+
+:Create export file;
+note right: Save to temporary location
+
+:Validate export file;
+if (File generated successfully?) then (yes)
+else (no)
+  :Show export error;
+  :Log error details;
+  :Return to report form;
+  stop
+endif
+
+:Trigger file download;
+note right: Browser download
+
+:Log export activity;
+note right: User, Report type, Format, Timestamp
+
+:Show success message;
+
+:Update export history;
+
+:Continue with reporting;
+
+stop
+@enduml

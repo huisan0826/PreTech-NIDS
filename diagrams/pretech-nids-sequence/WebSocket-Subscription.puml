@@ -1,0 +1,145 @@
+@startuml
+title PreTech-NIDS - WebSocket Subscription for Alerts
+hide circle
+autonumber
+
+participant FE as "Frontend (Svelte)"
+participant BE as "Backend (FastAPI)"
+participant Auth as "AuthService"
+participant WS as "WebSocketManager"
+participant AS as "AlertSystem"
+database DB as "MongoDB"
+
+FE -> BE : GET /api/alerts/ws (with JWT token)
+activate BE
+
+BE -> Auth : validate_jwt_token(token)
+activate Auth
+
+alt Token valid
+  Auth -> DB : Check user permissions
+  DB --> Auth : User permissions
+  alt Has alert access
+    Auth --> BE : User authenticated
+    deactivate Auth
+    
+    BE -> WS : create_websocket_connection(user_id)
+    activate WS
+    
+    WS -> WS : Store connection {user_id, connection_id, timestamp}
+    WS -> DB : Log connection attempt
+    DB --> WS : Logged
+    
+    WS --> BE : Connection created
+    deactivate WS
+    
+    BE --> FE : 101 Switching Protocols (WebSocket)
+    deactivate BE
+    
+    note over FE, WS : WebSocket connection established
+    
+    FE -> WS : WebSocket: Subscribe to alerts
+    activate WS
+    
+    WS -> WS : Add user to alert subscribers
+    WS -> WS : Send connection confirmation
+    WS --> FE : WebSocket: {type: "connected", message: "Subscribed to alerts"}
+    
+    loop While connection active
+      alt New alert generated
+        AS -> WS : broadcast_alert(alert_data)
+        activate AS
+        
+        WS -> WS : Get all active subscribers
+        WS -> WS : Filter subscribers by alert permissions
+        
+        loop For each authorized subscriber
+          WS -> WS : Check if user should receive this alert
+          alt User should receive alert
+            WS --> FE : WebSocket: {type: "alert", data: alert_data}
+            FE -> FE : Process alert notification
+            FE -> FE : Update alert list
+            FE -> FE : Show notification toast
+          end
+        end
+        
+        AS --> WS : Alert broadcasted
+        deactivate AS
+        
+      else Alert updated
+        AS -> WS : broadcast_alert_update(alert_id, update_data)
+        activate AS
+        
+        WS -> WS : Get subscribers for this alert
+        WS --> FE : WebSocket: {type: "alert_update", id: alert_id, data: update_data}
+        
+        FE -> FE : Update alert in list
+        FE -> FE : Show update notification
+        
+        AS --> WS : Update broadcasted
+        deactivate AS
+        
+      else Alert resolved
+        AS -> WS : broadcast_alert_resolution(alert_id, resolution_data)
+        activate AS
+        
+        WS --> FE : WebSocket: {type: "alert_resolved", id: alert_id, data: resolution_data}
+        
+        FE -> FE : Update alert status
+        FE -> FE : Show resolution notification
+        
+        AS --> WS : Resolution broadcasted
+        deactivate AS
+        
+      else Connection health check
+        WS -> FE : WebSocket: {type: "ping"}
+        FE --> WS : WebSocket: {type: "pong"}
+        WS -> WS : Update last activity timestamp
+      end
+    end
+    
+    alt Connection closed by user
+      FE -> WS : WebSocket: Close connection
+      WS -> WS : Remove user from subscribers
+      WS -> DB : Log connection closure
+      WS --> FE : WebSocket: Connection closed
+    else Connection timeout
+      WS -> WS : Check connection timeout
+      WS -> WS : Remove expired connections
+      WS -> DB : Log timeout closure
+      WS --> FE : WebSocket: Connection timeout
+    end
+    
+    deactivate WS
+    
+  else No alert access
+    Auth --> BE : Access denied
+    deactivate Auth
+    BE --> FE : 403 Forbidden
+    deactivate BE
+  else Unauthorized
+    BE --> FE : 401 Unauthorized
+    deactivate BE
+  end
+
+note right of FE
+  Frontend WebSocket handling:
+  - Auto-reconnect on disconnect
+  - Handle connection errors
+  - Process different message types
+  - Update UI in real-time
+  - Show connection status
+end note
+
+note right of WS
+  WebSocket management:
+  - Connection lifecycle
+  - User subscription tracking
+  - Permission-based filtering
+  - Connection health monitoring
+  - Automatic cleanup
+end note
+
+@enduml
+
+

@@ -1,0 +1,76 @@
+@startuml
+title PreTech-NIDS - Class Diagram (Auth & Users)
+hide circle
+
+class User {
+  +_id: ObjectId
+  +username: string
+  +email: string
+  +hashed_password: string
+  +role: string
+  +is_active: bool
+  +created_at: datetime
+  +updated_at: datetime
+}
+
+class Role {
+  +name: string
+  +permissions: Set<Permission>
+}
+
+class Permission {
+  +key: string
+  +description: string
+}
+
+class AuthService {
+  +login(username, password): Token
+  +register(username, email, password): bool
+  +verify_registration(email, otp): User
+  +forgot_password(email): bool
+  +verify_otp(otp_code): bool
+  +reset_password(email, new_password): bool
+  +getCurrentUser(request): User
+  +hasPermission(role, key): bool
+}
+
+class Token {
+  +access: string
+  +expiresAt: datetime
+}
+
+class RegistrationVerification {
+  +email: string
+  +username: string
+  +hashed_password: string
+  +otp_code: string
+  +expires_at: datetime
+  +attempts: int
+}
+
+class PasswordReset {
+  +email: string
+  +otp_code: string
+  +expires_at: datetime
+  +used: bool
+}
+
+class EmailService {
+  +send_verification_email(email, otp, username): bool
+  +send_reset_otp_email(email, otp, username): bool
+}
+
+User "1" --> "1" Role
+Role "*" o-- "*" Permission
+AuthService ..> User
+AuthService ..> Role
+AuthService ..> Permission
+AuthService ..> RegistrationVerification
+AuthService ..> PasswordReset
+AuthService ..> EmailService
+EmailService ..> RegistrationVerification
+EmailService ..> PasswordReset
+
+@enduml
+
+

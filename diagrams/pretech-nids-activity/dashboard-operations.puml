@@ -1,0 +1,77 @@
+@startuml
+title PreTech-NIDS - Dashboard Operations Activity
+hide circle
+
+start
+:User accesses dashboard;
+
+:Check user authentication;
+if (User authenticated?) then (yes)
+else (no)
+  :Redirect to login page;
+  stop
+endif
+
+:Load dashboard components;
+
+fork
+  :Load system statistics;
+  :Get total alerts count;
+  :Get recent attacks (24h);
+  :Get system status;
+  :Get last update time;
+fork again
+  :Load recent alerts;
+  :Get last 10 detection reports;
+  :Filter attack detections;
+  :Format alert messages;
+fork again
+  :Load network interfaces;
+  :Get available interfaces;
+  :Check interface status;
+  :Get real-time detection status;
+fork again
+  :Load user information;
+  :Get user role and permissions;
+  :Get user preferences;
+end fork
+
+:Display dashboard overview;
+
+:User interacts with dashboard;
+
+if (View detailed statistics?) then (yes)
+  :User clicks on statistics section;
+  :Load detailed statistics;
+  :Display charts and graphs;
+  :Show trend analysis;
+elseif (View recent alerts?) then (yes)
+  :User clicks on alerts section;
+  :Load full alert list;
+  :Display alert details;
+  :Show alert status;
+elseif (Start real-time detection?) then (yes)
+  :User clicks start detection;
+  :Show interface selection;
+  :Show model selection;
+  :Start detection process;
+elseif (Stop real-time detection?) then (yes)
+  :User clicks stop detection;
+  :Stop detection process;
+  :Update status display;
+elseif (Export data?) then (yes)
+  :User requests data export;
+  :Show export options;
+  :Generate export file;
+  :Download file;
+else (no)
+  :No action;
+endif
+
+:Update dashboard in real-time;
+note right: WebSocket updates
+
+:Continue monitoring;
+
+stop
+@enduml
