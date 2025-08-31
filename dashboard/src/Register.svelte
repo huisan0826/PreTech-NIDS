@@ -96,6 +96,9 @@
 
       success.set('Verification code sent to your email. Please check and verify.');
       
+      // 保存邮箱地址到localStorage作为备份
+      localStorage.setItem('pendingVerificationEmail', email);
+      
       // Redirect to verify page with email prefilled
       setTimeout(() => {
         const params = new URLSearchParams({ email });

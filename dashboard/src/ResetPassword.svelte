@@ -192,25 +192,27 @@
   // Get email from URL params
   onMount(() => {
     console.log('ResetPassword component mounted');
-    console.log('Current URL:', window.location.href);
-    console.log('Search params:', window.location.search);
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const emailParam = urlParams.get('email');
-    console.log('Email param found:', emailParam);
+    let emailParam = null;
+    
+    // Priority: Try to get email from hash route query parameters
+    if (window.location.hash && window.location.hash.includes('?')) {
+      const hashQueryString = window.location.hash.split('?')[1];
+      const urlParams = new URLSearchParams(hashQueryString);
+      emailParam = urlParams.get('email');
+    }
+    
+    // Fallback: Try to get from regular search parameters
+    if (!emailParam) {
+      const urlParams = new URLSearchParams(window.location.search);
+      emailParam = urlParams.get('email');
+    }
     
     if (emailParam) {
       email = emailParam;
-      console.log('Email loaded from URL:', email);
+      console.log('✅ Email loaded from URL:', email);
     } else {
-      console.log('No email found in URL params');
-      // Try to get from hash if using hash routing
-      const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-      const hashEmail = hashParams.get('email');
-      if (hashEmail) {
-        email = hashEmail;
-        console.log('Email loaded from hash:', email);
-      }
+      console.log('❌ No email found in URL');
     }
     
     return () => {
@@ -221,20 +223,16 @@
   });
 </script>
 
-<div class="reset-password-container">
-  <div class="reset-password-card">
+<div class="verify-container">
+  <div class="verify-card">
     {#if !otpVerified}
       <!-- Email Verification Header -->
-      <div class="verification-header">
-        <div class="header-bar">Email Verification</div>
-        <h1 class="main-title">Check Your Email</h1>
-        <p class="instruction-text">
-          We've sent a 6-digit verification code to 
-          <span class="email-address">{email || 'loading...'}</span>
-        </p>
-        {#if !email}
-          <p class="debug-info">Debug: No email found in URL params</p>
-        {/if}
+      <div class="verify-header">
+        <div class="logo">🛡️</div>
+        <h1 class="title">Email Verification</h1>
+        <p class="subtitle">Check Your Email</p>
+        <p class="instruction">We've sent a 6-digit verification code to</p>
+        <div class="email-display">{email || 'Loading...'}</div>
       </div>
 
       <!-- OTP Verification Form -->
@@ -244,7 +242,7 @@
           <input
             id="otp"
             type="text"
-            class="otp-input"
+            class="form-input"
             bind:value={otpCode}
             placeholder="0 0 0 0 0 0"
             disabled={$loading}
@@ -268,54 +266,39 @@
           </div>
         {/if}
 
-        <button 
-          type="submit" 
-          class="verify-button"
-          disabled={$loading}
-        >
+        <button type="submit" class="verify-button" disabled={$loading}>
           {#if $loading}
             <span class="spinner"></span>
             Verifying...
           {:else}
-            Verify Code
+            🔐 Verify Code
           {/if}
         </button>
 
-        <!-- Resend and Back to Login -->
-        <div class="secondary-actions">
-          <div class="resend-section">
-            <p class="resend-question">Didn't receive the code?</p>
-            <button 
-              type="button" 
-              class="resend-link"
-              disabled={$loading || resendCooldown > 0}
-              on:click={handleResendOTP}
-            >
-              {#if resendCooldown > 0}
-                Resend Code ({resendCooldown}s)
-              {:else}
-                Resend Code
-              {/if}
-            </button>
-          </div>
-          
-          <div class="divider"></div>
-          
-          <button type="button" class="back-button" on:click={goToLogin}>
-            Back to Login
+        <div class="resend-section">
+          <span>Didn't receive the code?</span>
+          <button type="button" class="link-button" on:click={handleResendOTP} disabled={$loading || resendCooldown > 0}>
+            {#if resendCooldown > 0}
+              Resend Code ({resendCooldown}s)
+            {:else}
+              Resend Code
+            {/if}
           </button>
         </div>
 
-        <!-- Important Note -->
-        <div class="important-note">
-          <strong>Note:</strong> The verification code will expire in 10 minutes. If you don't see the email, please check your spam folder.
-        </div>
+        <button type="button" class="back-button" on:click={goToLogin}>
+          Back to Login
+        </button>
       </form>
+
+            <div class="note-box">
+        <p><strong>Note:</strong> The verification code will expire in 10 minutes. If you don't see the email, please check your spam folder.</p>
+      </div>
 
     {:else}
       <!-- Password Reset Form -->
       <div class="reset-header">
-        <h1 class="main-title">Reset Password</h1>
+        <h1 class="title">Reset Password</h1>
         <p class="subtitle">Enter your new password for {userEmail}</p>
       </div>
 
@@ -326,7 +309,7 @@
             <input
               id="new-password"
               type={showNewPassword ? 'text' : 'password'}
-              class="form-input"
+              class="form-input password-input"
               bind:value={newPassword}
               on:keypress={handleKeyPress}
               placeholder="Enter new password"
@@ -354,7 +337,7 @@
             <input
               id="confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
-              class="form-input"
+              class="form-input password-input"
               bind:value={confirmPassword}
               on:keypress={handleKeyPress}
               placeholder="Enter new password again"
@@ -398,7 +381,7 @@
 </div>
 
 <style>
-  .reset-password-container {
+  .verify-container {
     min-height: 100vh;
     width: 100%;
     display: flex;
@@ -408,91 +391,99 @@
     padding: 1rem;
     box-sizing: border-box;
   }
-
-  .reset-password-card {
+  
+  .verify-card {
     background: white;
     border-radius: 16px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    padding: 0;
+    padding: 3rem;
     width: 100%;
     max-width: 450px;
-    overflow: hidden;
-    box-sizing: border-box;
     animation: slideIn 0.3s ease;
+    box-sizing: border-box;
   }
-
-  /* Email Verification Styles */
-  .verification-header {
-    background: white;
-    color: #1f2937;
-    padding: 2rem;
+  
+  .verify-header {
     text-align: center;
-    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 2rem;
   }
-
-  .header-bar {
-    font-size: 0.875rem;
-    font-weight: 500;
+  
+  .logo {
+    font-size: 3rem;
     margin-bottom: 1rem;
-    color: #6b7280;
   }
-
-  .main-title {
+  
+  .title {
     font-size: 1.75rem;
     font-weight: bold;
-    margin: 0 0 1rem 0;
     color: #1f2937;
+    margin: 0 0 0.5rem 0;
   }
-
-  .instruction-text {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.5;
+  
+  .subtitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  .instruction {
     color: #6b7280;
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
   }
-
-  .email-address {
+  
+  .email-display {
     font-weight: bold;
-    color: #3b82f6;
+    color: #1f2937;
+    font-size: 1.1rem;
+    margin: 0 0 1.5rem 0;
+    padding: 0.75rem;
+    background: #f3f4f6;
+    border-radius: 8px;
+    border: 2px solid #e5e7eb;
+    word-break: break-all;
   }
-
-  .debug-info {
-    font-size: 0.75rem;
-    color: #ef4444;
-    margin-top: 0.5rem;
-    font-style: italic;
-  }
-
-  .verification-form {
-    padding: 2rem;
+  
+  .verify-form {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
   }
-
-  .otp-input {
-    padding: 1rem;
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+  }
+  
+  .form-input {
+    padding: 0.875rem;
     border: 2px solid #e5e7eb;
     border-radius: 8px;
-    font-size: 1.25rem;
-    font-weight: 600;
-    text-align: center;
-    letter-spacing: 0.5rem;
+    font-size: 1rem;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     background-color: white;
     width: 100%;
     box-sizing: border-box;
+    font-weight: 600;
   }
-
-  .otp-input:focus {
+  
+  .form-input:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
-
-  .otp-input::placeholder {
-    letter-spacing: 0.5rem;
-    color: #d1d5db;
+  
+  .form-input:disabled {
+    background-color: #f9fafb;
+    opacity: 0.6;
   }
 
   .verify-button {
@@ -620,6 +611,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    margin-bottom: 1.5rem; /* 增加底部间距 */
   }
 
   .form-label {
@@ -650,19 +642,62 @@
     opacity: 0.6;
   }
 
-  .password-input-wrapper { 
-    position: relative; 
+  /* 验证码输入框特殊样式 */
+  .form-input[placeholder*="0 0 0 0 0 0"] {
+    margin-bottom: 1rem; /* 为验证码输入框添加底部间距 */
+    text-align: center; /* 验证码居中对齐 */
+    letter-spacing: 0.5rem; /* 验证码字母间距 */
   }
-  
-  .password-input-wrapper .toggle-password {
+
+  .password-input-wrapper {
+    position: relative;
+  }
+
+  .password-input {
+    padding-right: 3rem; /* 为眼睛图标留出空间 */
+    text-align: left; /* 密码输入框左对齐 */
+    letter-spacing: normal; /* 密码输入框正常字母间距 */
+  }
+
+  .toggle-password {
     position: absolute;
-    right: 10px;
+    right: 12px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
     font-size: 1rem;
+    padding: 0;
+    color: #6b7280;
+    transition: color 0.2s ease;
+  }
+
+  .toggle-password:hover {
+    color: #374151;
+  }
+
+  .note-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    font-size: 0.875rem;
+    color: #1e40af;
+    line-height: 1.4;
+  }
+
+  /* Password Reset Styles */
+  .reset-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .reset-password-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
   }
 
   .form-hint {
@@ -764,20 +799,20 @@
 
   /* Responsive Design */
   @media (max-width: 767px) {
-    .reset-password-container {
+    .verify-container {
       padding: 1rem;
     }
 
-    .reset-password-card {
+    .verify-card {
       max-width: 400px;
     }
 
-    .main-title {
+    .title {
       font-size: 1.5rem;
     }
 
-    .verification-header,
-    .verification-form,
+    .verify-header,
+    .verify-form,
     .reset-header,
     .reset-password-form {
       padding: 1.5rem;
@@ -785,16 +820,16 @@
   }
 
   @media (max-width: 479px) {
-    .reset-password-card {
+    .verify-card {
       max-width: 350px;
     }
 
-    .main-title {
+    .title {
       font-size: 1.375rem;
     }
 
-    .verification-header,
-    .verification-form,
+    .verify-header,
+    .verify-form,
     .reset-header,
     .reset-password-form {
       padding: 1rem;
