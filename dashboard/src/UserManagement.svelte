@@ -180,7 +180,9 @@
           {#each $roles as role}
             <div class="role-card">
               <div class="role-header">
-                <h3 class="role-name {getRoleColor(role.role)}">{role.display_name}</h3>
+                <h3 class="role-name">
+                  <span class="role-highlight {getRoleColor(role.role)}">{role.display_name}</span>
+                </h3>
                 <span class="role-badge {getRoleColor(role.role)}">{role.role.toUpperCase()}</span>
               </div>
               <div class="role-permissions">
@@ -421,6 +423,16 @@
     margin: 0;
   }
 
+  .role-highlight {
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    color: white;
+    display: inline-block;
+    text-transform: capitalize;
+    font-size: 1rem;
+    margin-right: 0.75rem;
+  }
+
   .role-permissions h4 {
     margin: 0 0 0.75rem 0;
     color: #374151;
@@ -436,10 +448,11 @@
   .permission-tag, .permission-badge {
     background-color: #e0e7ff;
     color: #3730a3;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 500;
+    display: inline-block;
   }
 
   .permission-badge {
@@ -450,10 +463,15 @@
   /* Role badges and colors */
   .role-badge {
     padding: 0.25rem 0.75rem;
-    border-radius: 15px;
+    border-radius: 16px;
     font-size: 0.75rem;
     font-weight: 600;
     color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    min-width: 70px;
+    text-align: center;
   }
 
   .admin-role { background-color: #dc2626; }

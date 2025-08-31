@@ -275,8 +275,11 @@
 <div class="app-layout">
   {#if $authLoading}
     <div class="auth-loading">
+      <div class="loading-logo">
+        <img src="/logo.png" alt="PreTech-NIDS Logo" class="logo-image" />
+      </div>
       <div class="loading-spinner"></div>
-      <p>Loading...</p>
+      <p>Loading PreTech-NIDS...</p>
     </div>
   {:else if !$isAuthenticated}
     <main class="auth-main">
@@ -286,7 +289,10 @@
     <!-- Mobile Header -->
     <header class="mobile-header">
       <div class="mobile-header-content">
-        <h1 class="mobile-app-title">🛡️ PreTech-NIDS</h1>
+        <h1 class="mobile-app-title">
+          <img src="/logo.png" alt="PreTech-NIDS Logo" class="mobile-logo" />
+          PreTech-NIDS
+        </h1>
         <button 
           class="hamburger-button" 
           on:click={toggleMobileMenu} 
@@ -320,76 +326,87 @@
       <div class="sidebar-content">
         <div class="sidebar-header">
           <div class="logo-section">
-            <div class="logo">🛡️</div>
+            <div class="logo">
+              <img src="/logo.png" alt="PreTech-NIDS Logo" class="sidebar-logo" />
+            </div>
             {#if !$isSidebarCollapsed}
               <h2 class="app-title">PreTech-NIDS</h2>
             {/if}
           </div>
           <button class="sidebar-toggle" on:click={toggleSidebar} title="Toggle Sidebar">
-            {#if $isSidebarCollapsed}
-              ☰
-            {:else}
-              ☰
-            {/if}
+            ☰
           </button>
         </div>
 
-        <div class="nav-section">
-          <ul class="nav-list">
-            {#each navItems as item}
-              <li class="nav-item">
-                <a
-                  href={item.href}
-                  use:link
-                  class="nav-link"
-                  class:active={isActive(item.href)}
-                  on:click={closeMobileMenu}
-                  title={$isSidebarCollapsed ? item.label : ''}
-                >
-                  <span class="nav-icon">{item.icon}</span>
-                  {#if !$isSidebarCollapsed}
+        {#if !$isSidebarCollapsed}
+          <div class="nav-section">
+            <ul class="nav-list">
+              {#each navItems as item}
+                <li class="nav-item">
+                  <a
+                    href={item.href}
+                    use:link
+                    class="nav-link"
+                    class:active={isActive(item.href)}
+                    on:click={closeMobileMenu}
+                    title={item.label}
+                  >
+                    <span class="nav-icon">{item.icon}</span>
                     <span class="nav-label">{item.label}</span>
-                  {/if}
-                </a>
-              </li>
-            {/each}
-          </ul>
-        </div>
+                  </a>
+                </li>
+              {/each}
+            </ul>
+          </div>
 
-        <div class="user-section">
-          <div class="user-info">
-            {#if $currentUser?.avatar_url}
-              <img src={$currentUser.avatar_url} alt="User Avatar" class="user-avatar-image" />
-            {:else}
-              <div class="user-avatar">👤</div>
-            {/if}
-            {#if !$isSidebarCollapsed}
+          <div class="user-section">
+            <div class="user-info">
+              {#if $currentUser?.avatar_url}
+                <img src={$currentUser.avatar_url} alt="User Avatar" class="user-avatar-image" />
+              {:else}
+                <div class="user-avatar">👤</div>
+              {/if}
               <div class="user-details">
                 <div class="user-name">{$currentUser?.username || 'User'}</div>
                 <div class="user-role">{$currentUser?.role_display || 'Report Viewer'}</div>
               </div>
-            {/if}
+            </div>
+            
+            <!-- User Profile Button -->
+            <button class="profile-button" on:click={() => push('/profile')} title="Profile">
+              <span class="profile-icon">⚙️</span>
+              <span class="profile-text">Profile</span>
+            </button>
+            
+            <button class="logout-button" on:click={logout} title="Logout">
+              <span class="logout-icon">🚪</span>
+              <span class="logout-text">Logout</span>
+            </button>
           </div>
           
-          <!-- User Profile Button -->
-          <button class="profile-button" on:click={() => push('/profile')} title={$isSidebarCollapsed ? 'Profile' : ''}>
-            <span class="profile-icon">⚙️</span>
-            {#if !$isSidebarCollapsed}
-              <span class="profile-text">Profile</span>
-            {/if}
-          </button>
-          
-          <button class="logout-button" on:click={logout} title={$isSidebarCollapsed ? 'Logout' : ''}>
-            <span class="logout-icon">🚪</span>
-            {#if !$isSidebarCollapsed}
-              <span class="logout-text">Logout</span>
-            {/if}
-          </button>
-        </div>
-        
-        <div class="sidebar-footer">
-          <p class="version-info">v1.0.0</p>
-        </div>
+          <div class="sidebar-footer">
+            <p class="version-info">v1.0.0</p>
+          </div>
+        {:else}
+          <!-- Collapsed state: show only icons -->
+          <div class="collapsed-user-section">
+            <div class="collapsed-user-avatar">
+              {#if $currentUser?.avatar_url}
+                <img src={$currentUser.avatar_url} alt="User Avatar" class="collapsed-avatar-image" />
+              {:else}
+                <div class="collapsed-avatar">👤</div>
+              {/if}
+            </div>
+            
+            <button class="collapsed-profile-button" on:click={() => push('/profile')} title="Profile">
+              <span class="profile-icon">⚙️</span>
+            </button>
+            
+            <button class="collapsed-logout-button" on:click={logout} title="Logout">
+              <span class="logout-icon">🚪</span>
+            </button>
+          </div>
+        {/if}
       </div>
     </nav>
 
@@ -415,22 +432,55 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
+    width: 100vw;
     background-color: #f8f9fa;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .loading-logo {
+    margin-bottom: 1.5rem;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .logo-image {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
   }
 
   .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e5e7eb;
-    border-left: 4px solid #3b82f6;
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e5e7eb;
+    border-left: 5px solid #3b82f6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
 
   .auth-loading p {
     color: #6b7280;
-    font-size: 1.125rem;
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 0;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
   }
 
   /* Authentication Pages */
@@ -473,6 +523,14 @@
     font-weight: bold;
     color: white;
     margin: 0;
+  }
+
+  .mobile-logo {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    vertical-align: middle;
+    object-fit: contain;
   }
 
   .hamburger-button {
@@ -529,11 +587,12 @@
 
   .sidebar.collapsed .sidebar-header {
     padding: 0 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     flex-direction: column;
     gap: 0.5rem;
     align-items: center;
     justify-content: center;
+    border-bottom: none;
   }
 
   .sidebar.collapsed .logo-section {
@@ -547,30 +606,77 @@
     margin-bottom: 0.5rem;
   }
 
-  .sidebar.collapsed .nav-link {
-    padding: 0.75rem 0.5rem;
+  .sidebar.collapsed .nav-section,
+  .sidebar.collapsed .sidebar-footer {
+    display: none;
+  }
+
+  /* Collapsed user section styles */
+  .collapsed-user-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0.5rem;
+    margin-top: auto;
+  }
+
+  .collapsed-user-avatar {
+    display: flex;
+    align-items: center;
     justify-content: center;
   }
 
-  .sidebar.collapsed .user-section {
-    padding: 0.5rem;
-  }
-
-  .sidebar.collapsed .user-info {
-    flex-direction: column;
+  .collapsed-avatar {
+    width: 2rem;
+    height: 2rem;
+    background-color: #4b5563;
+    border-radius: 50%;
+    display: flex;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
+    font-size: 1rem;
   }
 
-  .sidebar.collapsed .profile-button,
-  .sidebar.collapsed .logout-button {
-    padding: 0.5rem;
-    min-height: 35px;
-    font-size: 0.8rem;
+  .collapsed-avatar-image {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    object-fit: cover;
   }
 
-  .sidebar.collapsed .sidebar-footer {
-    padding: 0 0.5rem;
+  .collapsed-profile-button,
+  .collapsed-logout-button {
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+  }
+
+  .collapsed-profile-button {
+    background-color: #4f46e5;
+    color: white;
+  }
+
+  .collapsed-profile-button:hover {
+    background-color: #4338ca;
+    transform: scale(1.05);
+  }
+
+  .collapsed-logout-button {
+    background-color: #dc2626;
+    color: white;
+  }
+
+  .collapsed-logout-button:hover {
+    background-color: #b91c1c;
+    transform: scale(1.05);
   }
 
   .sidebar.sidebar-open {
@@ -604,8 +710,13 @@
   }
 
   .logo {
-    font-size: 2rem;
     min-width: 2rem;
+  }
+
+  .sidebar-logo {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
   }
 
   .app-title {
@@ -891,6 +1002,8 @@
       gap: 0.5rem;
       align-items: center;
       justify-content: center;
+      border-bottom: none;
+      margin-bottom: 0;
     }
 
     .sidebar.collapsed .logo-section {
@@ -902,6 +1015,73 @@
     .sidebar.collapsed .sidebar-toggle {
       order: 0;
       margin-bottom: 0.5rem;
+    }
+
+    .sidebar.collapsed .nav-section,
+    .sidebar.collapsed .sidebar-footer {
+      display: none;
+    }
+
+    /* Large screen collapsed user section */
+    .collapsed-user-section {
+      gap: 1.25rem;
+      padding: 1.25rem 0.75rem;
+    }
+
+    .collapsed-avatar,
+    .collapsed-avatar-image {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    .collapsed-profile-button,
+    .collapsed-logout-button {
+      width: 2.25rem;
+      height: 2.25rem;
+      font-size: 1.125rem;
+    }
+
+    /* Mobile collapsed user section */
+    .collapsed-user-section {
+      gap: 0.75rem;
+      padding: 0.75rem 0.25rem;
+    }
+
+    .collapsed-avatar,
+    .collapsed-avatar-image {
+      width: 1.75rem;
+      height: 1.75rem;
+    }
+
+    .collapsed-profile-button,
+    .collapsed-logout-button {
+      width: 1.75rem;
+      height: 1.75rem;
+      font-size: 0.875rem;
+    }
+
+    /* Loading optimization for mobile */
+    .auth-loading {
+      padding: 1rem;
+    }
+
+    .loading-logo {
+      margin-bottom: 1rem;
+    }
+
+    .logo-image {
+      width: 80px;
+      height: 80px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border-width: 4px;
+    }
+
+    .auth-loading p {
+      font-size: 1.125rem;
     }
   }
 
@@ -957,7 +1137,8 @@
 
     .sidebar.collapsed .sidebar-header {
       padding: 0 0.5rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0;
+      border-bottom: none;
     }
 
     .nav-link {
@@ -965,7 +1146,7 @@
     }
 
     .sidebar.collapsed .nav-link {
-      padding: 0.75rem 0.5rem;
+      display: none;
     }
 
     .user-section {
@@ -973,7 +1154,12 @@
     }
 
     .sidebar.collapsed .user-section {
-      padding: 0.5rem;
+      display: none;
+    }
+
+    .sidebar.collapsed .nav-section,
+    .sidebar.collapsed .sidebar-footer {
+      display: none;
     }
   }
 </style> 

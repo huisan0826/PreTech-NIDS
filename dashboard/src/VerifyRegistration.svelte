@@ -123,7 +123,9 @@
 <div class="verify-container">
   <div class="verify-card">
     <div class="verify-header">
-      <div class="logo">🛡️</div>
+              <div class="logo">
+          <img src="/logo.png" alt="PreTech-NIDS Logo" class="auth-logo" />
+        </div>
       <h1 class="title">Email Verification</h1>
       <p class="subtitle">Check Your Email</p>
       <p class="instruction">We've sent a 6-digit verification code to</p>
@@ -210,8 +212,14 @@
   }
   
   .logo {
-    font-size: 3rem;
     margin-bottom: 1rem;
+  }
+
+  .auth-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin: 0 auto;
   }
   
   .title {

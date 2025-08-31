@@ -204,7 +204,9 @@
 <div class="login-container">
   <div class="login-card">
     <div class="login-header">
-      <div class="logo">🛡️</div>
+              <div class="logo">
+          <img src="/logo.png" alt="PreTech-NIDS Logo" class="auth-logo" />
+        </div>
       <h1 class="title">Login to PreTect-NIDS</h1>
       <p class="subtitle">Access your network security dashboard</p>
     </div>
@@ -314,8 +316,14 @@
   }
 
   .logo {
-    font-size: 3rem;
     margin-bottom: 1rem;
+  }
+
+  .auth-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin: 0 auto;
   }
 
   .title {
