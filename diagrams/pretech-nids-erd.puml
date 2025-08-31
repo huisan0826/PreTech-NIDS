@@ -1,0 +1,165 @@
+@startuml PreTech-NIDS-ERD
+!define RECTANGLE class
+
+' Hide the class identifier circle
+hide circle
+
+title PreTech-NIDS Database Entity Relationship Diagram
+
+' Users Collection
+RECTANGLE users {
+    + _id: ObjectId (PK)
+    + uid: string
+    + display_name: string
+    + email: string
+    + phone_number: string
+    + profile_pic: string
+    + role: string
+    + created_time: timestamp
+    + last_login: timestamp
+    + is_active: boolean
+}
+
+' Detection Reports Collection
+RECTANGLE detection_reports {
+    + _id: ObjectId (PK)
+    + model: string
+    + input: array[float]
+    + output: object
+    + timestamp: string
+    + type: string
+    + interface: string
+    + result: object
+    + src_ip: string
+    + dst_ip: string
+    + dst_port: integer
+    + protocol: string
+}
+
+' Alerts Collection
+RECTANGLE alerts {
+    + _id: ObjectId (PK)
+    + rule_id: string
+    + alert_type: string
+    + level: string
+    + title: string
+    + message: string
+    + source_ip: string
+    + destination_ip: string
+    + target_port: integer
+    + protocol: string
+    + model: string
+    + confidence: float
+    + timestamp: string
+    + acknowledged: boolean
+    + acknowledged_by: string
+    + resolved: boolean
+    + resolved_by: string
+}
+
+' Alert Rules Collection
+RECTANGLE alert_rules {
+    + _id: ObjectId (PK)
+    + id: string
+    + name: string
+    + description: string
+    + alert_type: string
+    + conditions: object
+    + actions: array[string]
+    + enabled: boolean
+    + threshold: float
+    + time_window: integer
+    + created_at: string
+    + updated_at: string
+}
+
+' Alert History Collection
+RECTANGLE alert_history {
+    + _id: ObjectId (PK)
+    + alert_id: string
+    + action: string
+    + user_id: string
+    + timestamp: string
+    + notes: string
+    + previous_state: object
+    + new_state: object
+}
+
+' Attack Locations Collection
+RECTANGLE attack_locations {
+    + _id: ObjectId (PK)
+    + timestamp: string
+    + source_ip: string
+    + location: object
+    + attack_details: object
+    + country: string
+    + country_code: string
+    + latitude: float
+    + longitude: float
+}
+
+' Geo Cache Collection
+RECTANGLE geo_cache {
+    + _id: ObjectId (PK)
+    + ip: string
+    + location_data: object
+    + cached_at: string
+}
+
+' PCAP Analyses Collection
+RECTANGLE pcap_analyses {
+    + _id: ObjectId (PK)
+    + filename: string
+    + file_hash: string
+    + file_size: integer
+    + total_packets: integer
+    + packet_analysis: object
+    + threat_analysis: object
+    + timestamp: string
+    + processing_time: float
+    + status: string
+}
+
+' PCAP Reports Collection
+RECTANGLE pcap_reports {
+    + _id: ObjectId (PK)
+    + analysis_id: string
+    + report_type: string
+    + content: object
+    + generated_at: string
+    + format: string
+}
+
+' Password Resets Collection
+RECTANGLE password_resets {
+    + _id: ObjectId (PK)
+    + email: string
+    + token: string
+    + expires_at: timestamp
+    + used: boolean
+    + created_at: timestamp
+}
+
+' Registration Verifications Collection
+RECTANGLE registration_verifications {
+    + _id: ObjectId (PK)
+    + email: string
+    + otp_code: string
+    + expires_at: timestamp
+    + verified: boolean
+    + created_at: timestamp
+    + verified_at: timestamp
+}
+
+' Relationships based on actual code implementation
+users ||--o{ alerts : "acknowledged_by/resolved_by"
+users ||--o{ alert_history : "user_id"
+users ||--o{ password_resets : "email"
+users ||--o{ registration_verifications : "email"
+alert_rules ||--o{ alerts : "rule_id"
+alerts ||--o{ alert_history : "alert_id"
+detection_reports ||--o{ alerts : "model"
+pcap_analyses ||--o{ pcap_reports : "analysis_id"
+attack_locations ||--o{ geo_cache : "source_ip"
+
+@enduml
