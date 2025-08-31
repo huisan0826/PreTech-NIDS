@@ -17,9 +17,16 @@ EPOCHS = 20
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# --- Data loading and processing ---
-print("🔍 Loading CICIDS2017 full dataset...")
-df = pd.read_csv("dataset/CICIDS2017 Full dataset.csv", low_memory=False)
+# --- Path parameters ---
+DATA_PATH = "../../dataset/CICIDS2017 Full dataset.csv"
+MODEL_PATH = "../../models/lstm_ae_model.h5"
+SCALER_PATH = "../../models/lstm_ae_scaler.pkl"
+THRESHOLD_PATH = "../../models/lstm_ae_threshold.txt"
+VISUALIZATION_PATH = "../../models/lstm_ae_mse.png"
+
+# 1. Load and clean BENIGN data
+print("🔍 Loading BENIGN-only data...")
+df = pd.read_csv(DATA_PATH, low_memory=False)
 df.columns = df.columns.str.strip()  # Remove spaces in column names
 
 if 'Label' not in df.columns:
@@ -39,7 +46,7 @@ X_train, X_val = train_test_split(df, test_size=0.2, shuffle=False)
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_val_scaled = scaler.transform(X_val)
-joblib.dump(scaler, f"{MODEL_DIR}/lstm_ae_scaler.pkl")
+joblib.dump(scaler, SCALER_PATH)
 
 X_train_seq = create_sequences(X_train_scaled, TIMESTEPS)
 X_val_seq = create_sequences(X_val_scaled, TIMESTEPS)
@@ -65,7 +72,7 @@ model.fit(
     callbacks=[EarlyStopping(monitor='val_loss', patience=3)]
 )
 
-model.save(f"{MODEL_DIR}/lstm_ae_model.h5")
+model.save(MODEL_PATH)
 print("✅ Model saved to lstm_ae_model.h5")
 
 # --- TFLite conversion ---
@@ -93,7 +100,7 @@ mse = np.mean(np.square(X_val_seq - reconstructions), axis=(1, 2))
 threshold = np.percentile(mse, 99.5)
 
 # Save threshold to file for deployment
-with open(f"{MODEL_DIR}/lstm_ae_threshold.txt", "w") as f:
+with open(THRESHOLD_PATH, "w") as f:
     f.write(str(threshold))
 
 plt.figure(figsize=(10, 5))
@@ -104,6 +111,6 @@ plt.xlabel("MSE")
 plt.ylabel("Frequency")
 plt.legend()
 plt.tight_layout()
-plt.savefig(f"{MODEL_DIR}/lstm_ae_mse.png")
+plt.savefig(VISUALIZATION_PATH)
 print(f"📈 Threshold: {threshold:.6f}")
 print("✅ LSTM-AE training complete.")

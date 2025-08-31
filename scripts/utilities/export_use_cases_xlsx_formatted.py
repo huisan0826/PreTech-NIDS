@@ -103,7 +103,7 @@ def write_use_case_sheet(wb: Workbook, uc: dict):
 
 
 def main():
-    csv_path = Path("UseCases.csv")
+    csv_path = Path("../docs/use_cases/UseCases.csv")
     if not csv_path.exists():
         raise SystemExit("UseCases.csv not found. Please run scripts/export_use_cases_csv.py first.")
 
@@ -115,12 +115,12 @@ def main():
     for uc in use_cases:
         write_use_case_sheet(wb, uc)
 
-    base = Path("UseCases_formatted.xlsx")
+    base = Path("../docs/use_cases/UseCases_formatted.xlsx")
     out_path = base
     if out_path.exists():
         idx = 2
         while True:
-            candidate = Path(f"UseCases_formatted_v{idx}.xlsx")
+            candidate = Path(f"../docs/use_cases/UseCases_formatted_v{idx}.xlsx")
             if not candidate.exists():
                 out_path = candidate
                 break

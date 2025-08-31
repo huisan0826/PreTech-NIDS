@@ -3,8 +3,9 @@ import numpy as np
 import json
 import os
 
+# --- Load and preprocess ---
 print("🔍 Loading CICIDS2017 dataset...")
-df = pd.read_csv("dataset/CICIDS2017 Full dataset.csv", low_memory=False)
+df = pd.read_csv("../../dataset/CICIDS2017 Full dataset.csv", low_memory=False)
 df.columns = df.columns.str.strip()
 
 # Automatically identify label column

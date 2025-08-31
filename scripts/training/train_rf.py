@@ -8,10 +8,10 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
 # --- Path parameters ---
-DATA_PATH = "dataset/CICIDS2017 Full dataset.csv"
-MODEL_PATH = "models/rf_model.pkl"
-SCALER_PATH = "models/rf_scaler.pkl"
-IMPORTANCE_PNG = "models/rf_feature_importance.png"
+DATA_PATH = "../../dataset/CICIDS2017 Full dataset.csv"
+MODEL_PATH = "../../models/rf_model.pkl"
+SCALER_PATH = "../../models/rf_scaler.pkl"
+IMPORTANCE_PNG = "../../models/rf_feature_importance.png"
 
 # --- Training parameters (optimized) ---
 MAX_SAMPLES = 150000
@@ -19,7 +19,7 @@ MAX_SYNTH = 50000
 N_ESTIMATORS = 100
 RANDOM_SEED = 42
 
-print("🔍 Loading dataset...")
+print("🔍 Loading BENIGN-only data...")
 df = pd.read_csv(DATA_PATH, low_memory=False)
 df.columns = df.columns.str.strip()
 

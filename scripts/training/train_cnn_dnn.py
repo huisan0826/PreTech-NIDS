@@ -15,9 +15,16 @@ BATCH_SIZE = 256
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# --- Load and clean data ---
-print("🔍 Loading dataset...")
-df = pd.read_csv("dataset/CICIDS2017 Full dataset.csv", low_memory=False)
+# --- Path parameters ---
+DATA_PATH = "../../dataset/CICIDS2017 Full dataset.csv"
+MODEL_PATH = "../../models/cnn_dnn_model.h5"
+SCALER_PATH = "../../models/cnn_dnn_scaler.pkl"
+THRESHOLD_PATH = "../../models/cnn_dnn_threshold.txt"
+VISUALIZATION_PATH = "../../models/cnn_dnn_mse_threshold.png"
+
+# 1. Load and clean BENIGN data
+print("🔍 Loading BENIGN-only data...")
+df = pd.read_csv(DATA_PATH, low_memory=False)
 df.columns = df.columns.str.strip()  # Remove extra spaces in column names
 
 if 'Label' not in df.columns:
@@ -38,7 +45,7 @@ y = df['Label']
 # --- Standardization ---
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
-joblib.dump(scaler, f"{MODEL_DIR}/cnn_dnn_scaler.pkl")
+joblib.dump(scaler, SCALER_PATH)
 
 # --- CNN input format conversion: 2D → 3D ---
 X_cnn = np.expand_dims(X_scaled, axis=-1)
@@ -72,7 +79,7 @@ model.fit(
 )
 
 # --- Model saving ---
-model.save(f"{MODEL_DIR}/cnn_dnn_model.h5")
+model.save(MODEL_PATH)
 print("✅ Model saved as cnn_dnn_model.h5")
 
 # --- Convert to TFLite ---

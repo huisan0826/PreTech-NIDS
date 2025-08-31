@@ -26,6 +26,13 @@ except ImportError:
     print("⚠️ python-docx not available, Word document will not be created")
     WORD_AVAILABLE = False
 
+try:
+    import csv
+    CSV_AVAILABLE = True
+except ImportError:
+    print("❌ CSV module not available")
+    CSV_AVAILABLE = False
+
 def create_schema_data():
     """Create the complete database schema data"""
     
@@ -502,10 +509,14 @@ def create_word_document():
 def create_csv_files():
     """Create CSV files as fallback"""
     
+    if not CSV_AVAILABLE:
+        print("❌ CSV module not available")
+        return None
+    
     schemas = create_schema_data()
     
     # Create main schema file
-    main_file = "PreTech-NIDS_Database_Schema.csv"
+    main_file = "../docs/database_schema/PreTech-NIDS_Database_Schema.csv"
     
     with open(main_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)

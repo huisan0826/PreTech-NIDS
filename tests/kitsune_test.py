@@ -2,8 +2,8 @@ import sys
 import os
 import joblib
 
-# Add kitsune directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "kitsune"))
+# Add kitsune directory to path (now in root directory)
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "kitsune"))
 
 from Kitsune import Kitsune
 

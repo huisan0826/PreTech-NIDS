@@ -993,8 +993,7 @@ def main():
     with output_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for row in data:
-            writer.writerow(row)
+        writer.writerows(data)
 
     print(f"Wrote {len(data)} use cases to {output_path.resolve()}")
 

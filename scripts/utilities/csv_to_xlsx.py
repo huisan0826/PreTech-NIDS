@@ -17,8 +17,8 @@ def csv_to_xlsx(csv_path: Path, xlsx_path: Path) -> None:
 
 
 def main():
-    csv_path = Path("UseCases.csv")
-    xlsx_path = Path("UseCases.xlsx")
+    csv_path = Path("../docs/use_cases/UseCases.csv")
+    xlsx_path = Path("../docs/use_cases/UseCases.xlsx")
     if not csv_path.exists():
         raise SystemExit("UseCases.csv not found. Please run export_use_cases_csv.py first.")
     csv_to_xlsx(csv_path, xlsx_path)

@@ -3,8 +3,8 @@ import json
 import os
 
 # --- File paths ---
-DATA_PATH = "dataset/CICIDS2017 Full dataset.csv"
-OUTPUT_PATH = "sample_BENIGN_features.json"
+DATA_PATH = "../../dataset/CICIDS2017 Full dataset.csv"
+OUTPUT_PATH = "../../samples/BENIGN_samples.json"
 
 # --- Load and preprocess ---
 print("🔍 Loading and processing dataset...")
