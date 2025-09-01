@@ -333,19 +333,7 @@
       {/if}
     </div>
 
-    <!-- System Overview -->
-    <div class="system-overview">
-      <h2 class="section-title">System Overview</h2>
-      <div class="overview-content">
-        <p>PreTech-NIDS is actively monitoring your network for security threats.</p>
-        <ul class="overview-list">
-          <li>✅ Real-time traffic analysis</li>
-          <li>✅ Machine learning detection</li>
-          <li>✅ Alert management system</li>
-          <li>✅ Comprehensive reporting</li>
-        </ul>
-      </div>
-    </div>
+
   </div>
 </div>
 
@@ -694,44 +682,7 @@
     color: #9ca3af;
   }
 
-  /* System Overview */
-  .system-overview {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e5e7eb;
-  }
 
-  .overview-content p {
-    color: #6b7280;
-    margin: 0 0 1rem 0;
-    line-height: 1.6;
-  }
-
-  .overview-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .overview-list li {
-    padding: 0.5rem 0;
-    color: #374151;
-    font-size: 0.875rem;
-  }
-
-  .overview-note {
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e5e7eb;
-  }
-
-  .overview-note p {
-      font-size: 0.75rem;
-    color: #6b7280;
-    margin: 0;
-  }
 
   @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -784,6 +735,6 @@
     .status-value { font-size: 1.25rem; }
     .quick-actions { padding: 1rem; }
     .action-buttons { grid-template-columns: 1fr; }
-    .recent-alerts, .system-overview { padding: 1rem; }
+    .recent-alerts { padding: 1rem; }
   }
 </style>

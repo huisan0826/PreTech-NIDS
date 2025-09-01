@@ -126,7 +126,7 @@
               <div class="logo">
           <img src="/logo.png" alt="PreTech-NIDS Logo" class="auth-logo" />
         </div>
-      <h1 class="title">Email Verification</h1>
+      <h1 class="title">Registration Verification</h1>
       <p class="subtitle">Check Your Email</p>
       <p class="instruction">We've sent a 6-digit verification code to</p>
       <div class="email-display">{email || 'Loading...'}</div>
@@ -134,7 +134,7 @@
 
     <form class="verify-form" on:submit|preventDefault={handleVerify}>
       <div class="form-group">
-        <label for="otp" class="form-label">Enter Verification Code</label>
+        <label for="otp" class="form-label">Enter Registration Code</label>
         <input 
           id="otp" 
           type="text" 
@@ -161,7 +161,7 @@
           <span class="spinner"></span>
           Verifying...
         {:else}
-          🔐 Verify Code
+          🔐 Verify Registration
         {/if}
       </button>
 
@@ -178,7 +178,7 @@
     </form>
 
     <div class="note-box">
-      <p><strong>Note:</strong> The verification code will expire in 10 minutes. If you don't see the email, please check your spam folder.</p>
+              <p><strong>Note:</strong> The registration code will expire in 10 minutes. If you don't see the email, please check your spam folder.</p>
     </div>
   </div>
 </div>
