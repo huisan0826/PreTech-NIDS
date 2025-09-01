@@ -550,8 +550,12 @@
       }
       if (showOnlyUnresolved) {
         params.append('resolved_filter', 'false');
+        console.log('🔍 Filtering: Show only unresolved alerts');
+      } else {
+        console.log('🔍 Filtering: Show all alerts (including resolved)');
       }
 
+      console.log('🔍 Loading alerts with params:', params.toString());
       const response = await axios.get(`http://localhost:8000/api/alerts/alerts?${params.toString()}`);
       
       if (response.data.success) {
@@ -852,7 +856,7 @@
     <div class="filter-controls">
       <div class="filter-group">
         <label class="filter-label">
-          <input type="checkbox" bind:checked={showOnlyUnresolved} />
+          <input type="checkbox" bind:checked={showOnlyUnresolved} on:change={() => loadAlerts(1)} />
           Show only unresolved
         </label>
       </div>

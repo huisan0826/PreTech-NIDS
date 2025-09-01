@@ -791,6 +791,11 @@ class AlertManager:
             # Resolved filter
             if resolved_filter is not None:
                 query_filter["resolved"] = resolved_filter
+                logger.info(f"🔍 Applied resolved filter: {resolved_filter}")
+            else:
+                logger.info("🔍 No resolved filter applied - showing all alerts")
+            
+            logger.info(f"🔍 Final query filter: {query_filter}")
             
             # Get total count
             total_alerts = alerts_collection.count_documents(query_filter)
