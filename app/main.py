@@ -122,6 +122,7 @@ is_capturing = False
 def get_windows_interfaces_precise():
     try:
         # 1. Get GUID, description, friendly name
+        print("🔍 Getting Windows network interfaces...")
         output = subprocess.check_output('wmic nic get GUID,Name,NetConnectionID', shell=True, encoding='gbk', errors='ignore')
         lines = output.splitlines()
         guid_map = {}
@@ -132,12 +133,19 @@ def get_windows_interfaces_precise():
                 guid = guid.replace('{','').replace('}','').upper()
                 if netid:
                     guid_map[guid] = {'desc': desc, 'netid': netid}
+        
+        print(f"✅ Found {len(guid_map)} network adapters")
+        
         # 2. Map scapy interface ID to GUID
         from scapy.all import get_if_list
         interfaces = get_if_list()
+        print(f"✅ Scapy found {len(interfaces)} interfaces")
+        
         friendly_interfaces = []
         for iface in interfaces:
+            # Handle different interface name formats
             if iface.startswith('\\Device\\NPF_'):
+                # Already in correct format
                 guid = iface.split('_')[-1].replace('{','').replace('}','').upper()
                 info = guid_map.get(guid)
                 if info:
@@ -145,11 +153,35 @@ def get_windows_interfaces_precise():
                 else:
                     display = f'Unknown ({guid[-8:]})'
                 friendly_interfaces.append({'name': iface, 'display': display})
+            elif iface.startswith('{') and iface.endswith('}'):
+                # Convert GUID format to NPF format
+                guid = iface.replace('{','').replace('}','').upper()
+                npf_name = f'\\Device\\NPF_{{{guid}}}'
+                info = guid_map.get(guid)
+                if info:
+                    display = f'{info["netid"]} ({info["desc"]}) ({guid[-8:]})'
+                else:
+                    display = f'Unknown ({guid[-8:]})'
+                friendly_interfaces.append({'name': npf_name, 'display': display})
             else:
+                # Other formats (like loopback)
                 friendly_interfaces.append({'name': iface, 'display': iface})
+        
+        print(f"✅ Mapped {len(friendly_interfaces)} interfaces")
         return friendly_interfaces
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to execute wmic command: {e}")
+        print("Trying fallback method...")
+        # Fallback: just return scapy interfaces
+        try:
+            from scapy.all import get_if_list
+            interfaces = get_if_list()
+            return [{'name': iface, 'display': iface} for iface in interfaces]
+        except Exception as fallback_error:
+            print(f"❌ Fallback also failed: {fallback_error}")
+            return []
     except Exception as e:
-        print(f'Failed to get friendly interface names: {e}')
+        print(f'❌ Failed to get friendly interface names: {e}')
         return []
 
 def get_available_interfaces():
@@ -159,6 +191,26 @@ def get_available_interfaces():
         from scapy.all import get_if_list
         interfaces = get_if_list()
         return [{'name': iface, 'display': iface} for iface in interfaces]
+
+def validate_interface(interface_name):
+    """Validate if a network interface is available and accessible"""
+    try:
+        available_interfaces = get_available_interfaces()
+        interface_names = [i['name'] for i in available_interfaces]
+        
+        if interface_name not in interface_names:
+            return False, f"Interface '{interface_name}' not found. Available interfaces: {interface_names}"
+        
+        # Try to resolve the interface
+        try:
+            from scapy.all import resolve_iface
+            resolved_iface = resolve_iface(interface_name)
+            return True, f"Interface '{interface_name}' is valid and accessible"
+        except Exception as e:
+            return False, f"Interface '{interface_name}' cannot be resolved: {str(e)}"
+            
+    except Exception as e:
+        return False, f"Error validating interface: {str(e)}"
 
 # ---------- Model paths ----------
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
@@ -671,14 +723,52 @@ class RealTimeDetector:
             print(f"🔄 Starting real-time capture on interface {interface} with model {self.model}...")
         
         try:
+            # Windows-specific interface validation
+            if platform.system().lower() == 'windows':
+                # Check if interface name is valid
+                if not interface.startswith('\\Device\\NPF_') and not interface.startswith('{'):
+                    print(f"⚠️ Warning: Interface '{interface}' may not be in correct Windows format")
+                    print("Expected format: \\Device\\NPF_{GUID} or {GUID}")
+                
+                # Try to resolve the interface first
+                try:
+                    from scapy.all import resolve_iface
+                    resolved_iface = resolve_iface(interface)
+                    print(f"✅ Interface resolved: {resolved_iface.network_name}")
+                except Exception as resolve_error:
+                    print(f"⚠️ Interface resolution failed: {resolve_error}")
+                    print("Available interfaces:")
+                    available_interfaces = get_available_interfaces()
+                    for i, iface in enumerate(available_interfaces):
+                        print(f"  {i+1}. {iface['display']} -> {iface['name']}")
+                    raise Exception(f"Invalid interface '{interface}'. Please use one of the available interfaces above.")
+            
+            # Start packet capture
             sniff(
                 iface=interface,
                 prn=self.packet_callback,
                 store=0,
                 stop_filter=lambda x: not self.is_capturing
             )
+        except PermissionError:
+            error_msg = "Permission denied. Please run the application as Administrator."
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
+        except OSError as e:
+            if "123" in str(e) or "syntax is incorrect" in str(e):
+                error_msg = f"Interface '{interface}' syntax error. Please check the interface name format."
+                print(f"❌ {error_msg}")
+                print("Available interfaces:")
+                available_interfaces = get_available_interfaces()
+                for i, iface in enumerate(available_interfaces):
+                    print(f"  {i+1}. {iface['display']} -> {iface['name']}")
+                raise Exception(error_msg)
+            else:
+                print(f"❌ Capture error: {e}")
+                raise
         except Exception as e:
-            print(f"Capture error: {e}")
+            print(f"❌ Capture error: {e}")
+            raise
     
     def stop_capture(self):
         self.is_capturing = False
@@ -689,6 +779,33 @@ class RealTimeConfig(BaseModel):
     interface: str = "eth0"
     model: str = "kitsune"
     use_all_models: bool = True
+
+# ---------- Interface management endpoints ----------
+@app.get("/interfaces")
+def get_interfaces():
+    """Get available network interfaces"""
+    try:
+        interfaces = get_available_interfaces()
+        return {
+            "interfaces": interfaces,
+            "count": len(interfaces),
+            "platform": platform.system()
+        }
+    except Exception as e:
+        return {"error": f"Failed to get interfaces: {str(e)}"}
+
+@app.get("/interfaces/{interface_name}/validate")
+def validate_interface_endpoint(interface_name: str):
+    """Validate a specific network interface"""
+    try:
+        is_valid, message = validate_interface(interface_name)
+        return {
+            "interface": interface_name,
+            "is_valid": is_valid,
+            "message": message
+        }
+    except Exception as e:
+        return {"error": f"Validation failed: {str(e)}"}
 
 # ---------- Real-time detection endpoints ----------
 @app.post("/start-realtime")
@@ -712,11 +829,14 @@ async def start_realtime_detection(config: RealTimeConfig, request: Request):
     if is_capturing:
         return {"message": "⚠️ Real-time detection is already running"}
     
-    available_interfaces = get_available_interfaces()
-    if config.interface not in [i['name'] for i in available_interfaces]:
+    # Validate interface before starting
+    is_valid, validation_message = validate_interface(config.interface)
+    if not is_valid:
+        available_interfaces = get_available_interfaces()
         return {
-            "error": f"Interface '{config.interface}' not found",
-            "available_interfaces": available_interfaces
+            "error": validation_message,
+            "available_interfaces": available_interfaces,
+            "suggestion": "Please select one of the available interfaces above"
         }
     
     try:
