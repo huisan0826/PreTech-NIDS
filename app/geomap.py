@@ -291,15 +291,19 @@ class AttackMapService:
             logger.error(f"Failed to get recent attacks from database: {e}")
             return []
     
-    def get_attack_statistics(self) -> dict:
-        """Get attack statistics by country"""
+    def get_attack_statistics(self, minutes: Optional[int] = None) -> dict:
+        """Get attack statistics by country within a window. Defaults to 24h if minutes not provided."""
         try:
+            # Determine time window
+            window_minutes = minutes if minutes and minutes > 0 else 1440
+            cutoff = get_beijing_time() - timedelta(minutes=window_minutes)
+
             # Get statistics from database
             pipeline = [
                 {
                     '$match': {
                         'timestamp': {
-                            '$gte': get_beijing_time() - timedelta(hours=24)
+                            '$gte': cutoff
                         }
                     }
                 },
@@ -332,13 +336,15 @@ class AttackMapService:
                     'latest_attack': result['latest_attack'].isoformat()
                 })
             
+            total = sum(stat['attack_count'] for stat in stats)
             return {
-                'total_attacks_24h': sum(stat['attack_count'] for stat in stats),
+                'total_attacks': total,
+                'window_minutes': window_minutes,
                 'countries': stats
             }
         except Exception as e:
             logger.error(f"Failed to get attack statistics: {e}")
-            return {'total_attacks_24h': 0, 'countries': []}
+            return {'total_attacks': 0, 'window_minutes': minutes or 1440, 'countries': []}
 
 # Global service instances
 attack_map_service = AttackMapService()
@@ -360,10 +366,10 @@ async def get_recent_attacks(minutes: int = 60):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/statistics")
-async def get_attack_statistics():
-    """Get attack statistics by country"""
+async def get_attack_statistics(minutes: Optional[int] = None):
+    """Get attack statistics by country, optional minutes window."""
     try:
-        stats = attack_map_service.get_attack_statistics()
+        stats = attack_map_service.get_attack_statistics(minutes)
         return {
             'success': True,
             'statistics': stats

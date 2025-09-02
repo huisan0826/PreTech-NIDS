@@ -118,12 +118,15 @@
       loading.set(true);
       error.set(null);
 
+      // Ensure numeric minutes
+      const minutes = Number(timeWindow) || 60;
+
       // Load recent attacks
-      const attacksResponse = await axios.get(`http://localhost:8000/api/geomap/recent-attacks?minutes=${timeWindow}`);
+      const attacksResponse = await axios.get(`http://localhost:8000/api/geomap/recent-attacks?minutes=${minutes}`);
       const attacksData = attacksResponse.data;
 
       // Load statistics
-      const statsResponse = await axios.get('http://localhost:8000/api/geomap/statistics');
+      const statsResponse = await axios.get(`http://localhost:8000/api/geomap/statistics?minutes=${minutes}`);
       const statsData = statsResponse.data;
 
       if (attacksData.success) {
@@ -133,7 +136,7 @@
 
       if (statsData.success) {
         statistics.set(statsData.statistics);
-        updateStatsPanel(statsData.statistics);
+        updateStatsPanel(statsData.statistics, minutes);
       }
 
     } catch (e) {
@@ -259,17 +262,19 @@
     `;
   }
 
-  function updateStatsPanel(stats) {
+  function updateStatsPanel(stats, windowMinutes) {
     const panel = document.getElementById('map-stats-panel');
     if (!panel) return;
 
     const topCountries = stats.countries?.slice(0, 5) || [];
+    const minutes = Number(windowMinutes) || 1440;
+    const title = minutes >= 1440 ? '24h' : minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${minutes}m`;
     
     panel.innerHTML = `
       <div class="stats-content">
-        <h3>🚨 Attack Overview (24h)</h3>
+        <h3>🚨 Attack Overview (${title})</h3>
         <div class="total-attacks">
-          <span class="big-number">${stats.total_attacks_24h || 0}</span>
+          <span class="big-number">${stats.total_attacks || stats.total_attacks_24h || 0}</span>
           <span class="label">Total Attacks</span>
         </div>
         
