@@ -335,7 +335,7 @@
                     <div class="file-name">{selectedFile.name}</div>
                     <div class="file-size">{formatFileSize(selectedFile.size)}</div>
                   </div>
-                  <button class="clear-file-btn" on:click={clearFile}>✕</button>
+                  <button class="clear-file-btn" on:click|stopPropagation={clearFile}>✕</button>
                 </div>
               {:else}
                 <div class="upload-placeholder">
@@ -356,7 +356,7 @@
             />
             
             {#if !selectedFile}
-              <button class="browse-btn" on:click={() => fileInput.click()}>
+              <button class="browse-btn" on:click|stopPropagation={() => fileInput.click()}>
                 Browse Files
               </button>
             {/if}
