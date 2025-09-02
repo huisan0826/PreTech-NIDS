@@ -94,8 +94,9 @@ def get_reports(
         print(f"MongoDB query filter: {query_filter}")
         
         # Get reports with pagination, sorted by timestamp (newest first)
+        # Include MongoDB _id so frontend can perform delete operations
         reports = list(
-            collection.find(query_filter, {"_id": 0})
+            collection.find(query_filter)
             .sort("timestamp", -1)
             .skip(skip)
             .limit(limit)
@@ -106,6 +107,11 @@ def get_reports(
         
         print(f"Found {len(reports)} reports (total: {total_count})")
         
+        # Convert ObjectId to string for JSON serialization
+        for r in reports:
+            if r.get("_id") is not None:
+                r["_id"] = str(r["_id"]) 
+
         return {
             "reports": reports,
             "pagination": {
