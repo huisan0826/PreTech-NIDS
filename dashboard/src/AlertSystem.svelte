@@ -29,7 +29,7 @@
   let maxReconnectAttempts = 5;
   let reconnectTimer = null;
 
-  // Alert settings
+  // Alert settings with localStorage persistence
   let soundEnabled = true;
   let desktopNotificationsEnabled = true;
   let autoAcknowledge = false;
@@ -280,8 +280,14 @@
 
     console.log('🚀 AlertSystem mounted, starting auto-refresh...');
     
+    // Load saved alert settings first
+    loadAlertSettings();
+    
     // Initialize audio context for alert sounds
     await initializeAudio();
+    
+    // Request notification permission for desktop notifications
+    await requestNotificationPermission();
     
     // Load initial data
     await loadAlerts();
@@ -339,6 +345,55 @@
       globalCloseAllListener = null;
     }
   });
+
+  // Settings persistence functions
+  function loadAlertSettings() {
+    try {
+      const savedSettings = localStorage.getItem('alertSettings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        soundEnabled = settings.soundEnabled ?? true;
+        desktopNotificationsEnabled = settings.desktopNotificationsEnabled ?? true;
+        autoAcknowledge = settings.autoAcknowledge ?? false;
+        showOnlyUnresolved = settings.showOnlyUnresolved ?? true;
+        alertLevelFilter = settings.alertLevelFilter ?? 'all';
+        console.log('🔧 Loaded alert settings from localStorage:', settings);
+      } else {
+        console.log('🔧 No saved alert settings found, using defaults');
+      }
+    } catch (e) {
+      console.error('❌ Failed to load alert settings:', e);
+    } finally {
+      // Mark settings as loaded to enable auto-save
+      settingsLoaded = true;
+    }
+  }
+
+  function saveAlertSettings() {
+    try {
+      const settings = {
+        soundEnabled,
+        desktopNotificationsEnabled,
+        autoAcknowledge,
+        showOnlyUnresolved,
+        alertLevelFilter
+      };
+      localStorage.setItem('alertSettings', JSON.stringify(settings));
+      console.log('💾 Saved alert settings to localStorage:', settings);
+    } catch (e) {
+      console.error('❌ Failed to save alert settings:', e);
+    }
+  }
+
+  // Auto-save settings when they change (but not during initial load)
+  let settingsLoaded = false;
+  let settingsSaved = false;
+  $: if (settingsLoaded && soundEnabled !== undefined) {
+    saveAlertSettings();
+    settingsSaved = true;
+    // Reset saved status after 2 seconds
+    setTimeout(() => settingsSaved = false, 2000);
+  }
 
   // fix webkitAudioContext type error
   async function initializeAudio() {
@@ -435,36 +490,86 @@
   }
 
   async function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
+    if (!('Notification' in window)) {
+      console.log('🔔 Desktop notifications not supported in this browser');
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      console.log('🔔 Desktop notifications already granted');
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      console.log('🔔 Desktop notifications denied by user');
+      return;
+    }
+
+    if (Notification.permission === 'default') {
+      console.log('🔔 Requesting desktop notification permission...');
+      const permission = await Notification.requestPermission();
+      console.log('🔔 Desktop notification permission:', permission);
+      
+      if (permission === 'granted') {
+        console.log('✅ Desktop notifications enabled');
+      } else {
+        console.log('❌ Desktop notifications denied');
+      }
     }
   }
 
   function showDesktopNotification(alert) {
-    if (!desktopNotificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
+    console.log('🔔 Attempting to show desktop notification...', {
+      desktopNotificationsEnabled,
+      notificationSupported: 'Notification' in window,
+      permission: Notification.permission,
+      alert: alert.title
+    });
+
+    if (!desktopNotificationsEnabled) {
+      console.log('🔔 Desktop notifications disabled in settings');
       return;
     }
 
-    const options = {
-      body: alert.message,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      tag: `alert-${alert.id}`,
-      requireInteraction: alert.level === 'critical',
-      silent: false
-    };
+    if (!('Notification' in window)) {
+      console.log('🔔 Desktop notifications not supported in this browser');
+      return;
+    }
 
-    const notification = new Notification(alert.title, options);
-    
-    notification.onclick = () => {
-      window.focus();
-      showAlertDetails(alert);
-      notification.close();
-    };
+    if (Notification.permission !== 'granted') {
+      console.log('🔔 Desktop notification permission not granted:', Notification.permission);
+      return;
+    }
 
-    // Auto-close after 10 seconds for non-critical alerts
-    if (alert.level !== 'critical') {
-      setTimeout(() => notification.close(), 10000);
+    try {
+      const options = {
+        body: alert.message,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: `alert-${alert.id}`,
+        requireInteraction: alert.level === 'critical',
+        silent: false
+      };
+
+      const notification = new Notification(alert.title, options);
+      console.log('🔔 Desktop notification shown successfully');
+      
+      notification.onclick = () => {
+        console.log('🔔 Desktop notification clicked');
+        window.focus();
+        showAlertDetails(alert);
+        notification.close();
+      };
+
+      // Auto-close after 10 seconds for non-critical alerts
+      if (alert.level !== 'critical') {
+        setTimeout(() => {
+          notification.close();
+          console.log('🔔 Desktop notification auto-closed');
+        }, 10000);
+      }
+    } catch (e) {
+      console.error('❌ Failed to show desktop notification:', e);
     }
   }
 
@@ -1178,11 +1283,24 @@
             <button class="test-button" on:click={playAlertSound}>
               🔊 Test Sound
             </button>
+            {#if settingsSaved}
+              <div class="save-status" style="color: #10b981; font-size: 0.9em; margin-top: 0.5rem;">
+                ✅ Settings saved automatically
+              </div>
+            {/if}
           </div>
         </div>
         
         <div class="modal-footer">
-          <button class="modal-button primary" on:click={() => showSettingsModal = false}>
+          <button class="modal-button secondary" on:click={() => showSettingsModal = false}>
+            Close
+          </button>
+          <button class="modal-button primary" on:click={() => { 
+            saveAlertSettings(); 
+            settingsSaved = true;
+            setTimeout(() => settingsSaved = false, 2000);
+            showSettingsModal = false; 
+          }}>
             Save Settings
           </button>
         </div>
