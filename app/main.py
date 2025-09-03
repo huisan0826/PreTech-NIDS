@@ -117,6 +117,9 @@ reports = db['detection_reports']
 real_time_detector = None
 capture_thread = None
 is_capturing = False
+current_interface = None
+current_model = None
+current_use_all_models = None
 
 # ---------- Get available network interfaces ----------
 def get_windows_interfaces_precise():
@@ -824,7 +827,7 @@ async def start_realtime_detection(config: RealTimeConfig, request: Request):
         # If auth fails, allow access for now (backward compatibility)
         pass
     
-    global real_time_detector, capture_thread, is_capturing
+    global real_time_detector, capture_thread, is_capturing, current_interface, current_model, current_use_all_models
     
     if is_capturing:
         return {"message": "⚠️ Real-time detection is already running"}
@@ -856,6 +859,11 @@ async def start_realtime_detection(config: RealTimeConfig, request: Request):
         capture_thread.start()
         is_capturing = True
         
+        # Store current configuration
+        current_interface = config.interface
+        current_model = config.model
+        current_use_all_models = config.use_all_models
+        
         return {
             "message": f"✅ Real-time threat detection started",
             "interface": config.interface,
@@ -869,11 +877,14 @@ async def start_realtime_detection(config: RealTimeConfig, request: Request):
         is_capturing = False
         real_time_detector = None
         capture_thread = None
+        current_interface = None
+        current_model = None
+        current_use_all_models = None
         return {"error": f"Failed to start: {str(e)}"}
 
 @app.post("/stop-realtime")
 def stop_realtime_detection():
-    global real_time_detector, capture_thread, is_capturing
+    global real_time_detector, capture_thread, is_capturing, current_interface, current_model, current_use_all_models
     
     if not is_capturing:
         return {"message": "⚠️ Real-time detection is not running"}
@@ -891,6 +902,9 @@ def stop_realtime_detection():
         is_capturing = False
         real_time_detector = None
         capture_thread = None
+        current_interface = None
+        current_model = None
+        current_use_all_models = None
         
         return {"message": "⏹️ Real-time threat detection stopped", "status": "stopped"}
         
@@ -899,11 +913,15 @@ def stop_realtime_detection():
 
 @app.get("/realtime-status")
 def get_realtime_status():
+    global current_interface, current_model, current_use_all_models
     thread_status = "running" if capture_thread and capture_thread.is_alive() else "stopped"
     return {
         "is_capturing": is_capturing,
         "thread_status": thread_status,
-        "status": "running" if is_capturing and thread_status == "running" else "stopped"
+        "status": "running" if is_capturing and thread_status == "running" else "stopped",
+        "current_interface": current_interface,
+        "current_model": current_model,
+        "current_use_all_models": current_use_all_models
     }
 
 # Import new modules

@@ -10,6 +10,14 @@
   let selectedInterface = writable('eth0');
   let selectedModel = 'kitsune';
   let error = writable(null);
+  
+  // Current configuration from server
+  let currentInterface = null;
+  let currentModel = null;
+  let currentUseAllModels = null;
+  
+  // Loading state for initial page load
+  let initialLoading = writable(true);
 
   const models = ['kitsune', 'autoencoder', 'lstm', 'cnn', 'rf'];
 
@@ -76,15 +84,53 @@
     try {
       const res = await axios.get('http://localhost:8000/realtime-status');
       realtimeStatus.set(res.data.status);
+      
+      // Update current configuration from server
+      currentInterface = res.data.current_interface;
+      currentModel = res.data.current_model;
+      currentUseAllModels = res.data.current_use_all_models;
+      
+      // If detection is running, update UI to show current configuration
+      if (res.data.status === 'running' && currentInterface) {
+        selectedInterface.set(currentInterface);
+        useAllModels.set(currentUseAllModels || true);
+        if (currentModel) {
+          selectedModel = currentModel;
+        }
+        console.log('🔄 Updated UI with current detection configuration:', {
+          interface: currentInterface,
+          model: currentModel,
+          useAllModels: currentUseAllModels
+        });
+      }
     } catch (e) {
       console.error('Failed to check status:', e);
     }
   }
 
-  // Check status and load interfaces on page load
+    // Check status and load interfaces on page load
   onMount(() => {
-    checkRealtimeStatus();
-    loadInterfaces();
+    // Set up periodic status check to keep UI in sync
+    const statusInterval = setInterval(() => {
+      checkRealtimeStatus();
+    }, 2000); 
+    
+    // Load interfaces and check status
+    (async () => {
+      try {
+        // Load interfaces first, then check status
+        await loadInterfaces();
+        await checkRealtimeStatus();
+      } finally {
+        // Always set loading to false, even if there's an error
+        initialLoading.set(false);
+      }
+    })();
+    
+    // Cleanup interval on component destroy
+    return () => {
+      clearInterval(statusInterval);
+    };
   });
 </script>
 
@@ -94,7 +140,13 @@
     <p class="page-description">Monitor network traffic continuously for potential threats</p>
   </div>
 
-  <div class="content-section">
+  {#if $initialLoading}
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading detection status...</p>
+    </div>
+  {:else}
+    <div class="content-section">
     <!-- Status Overview Card -->
     <div class="status-card">
       <div class="status-header">
@@ -209,7 +261,13 @@
           <span class="info-icon">🔍</span>
           <div class="info-text">
             <strong>Detection Mode:</strong> 
-            {#if $useAllModels}
+            {#if $realtimeStatus === 'running' && currentUseAllModels !== null}
+              {#if currentUseAllModels}
+                Using all models for comprehensive threat analysis.
+              {:else}
+                Using {(currentModel && currentModel.toUpperCase()) || 'UNKNOWN'} model only.
+              {/if}
+            {:else if $useAllModels}
               Using all models for comprehensive threat analysis.
             {:else}
               Using {selectedModel.toUpperCase()} model only.
@@ -221,7 +279,13 @@
           <span class="info-icon">🌐</span>
           <div class="info-text">
             <strong>Network Interface:</strong> 
-            {$availableInterfaces.find(i => i.name === $selectedInterface)?.display || $selectedInterface}
+            {#if $realtimeStatus === 'running' && currentInterface}
+              {@const currentIface = $availableInterfaces.find(i => i.name === currentInterface)}
+              {(currentIface && currentIface.display) || currentInterface} (Currently Monitoring)
+            {:else}
+              {@const selectedIface = $availableInterfaces.find(i => i.name === $selectedInterface)}
+              {(selectedIface && selectedIface.display) || $selectedInterface}
+            {/if}
           </div>
         </div>
         
@@ -247,7 +311,8 @@
         <p class="error-message">{$error}</p>
       </div>
     {/if}
-  </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -277,6 +342,36 @@
     font-size: 1.1rem;
     color: #6b7280;
     margin: 0;
+  }
+
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top: 4px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  .loading-text {
+    color: #6b7280;
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
   .content-section {
