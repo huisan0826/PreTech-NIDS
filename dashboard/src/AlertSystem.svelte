@@ -280,6 +280,9 @@
 
     console.log('🚀 AlertSystem mounted, starting auto-refresh...');
     
+    // Initialize audio context for alert sounds
+    await initializeAudio();
+    
     // Load initial data
     await loadAlerts();
     await loadStatistics();
@@ -364,13 +367,38 @@
   }
 
   async function playAlertSound() {
-    if (!soundEnabled || !audioContext || playingSound) return;
+    console.log('🔊 Attempting to play alert sound...', {
+      soundEnabled,
+      audioContext: !!audioContext,
+      playingSound,
+      audioContextState: audioContext?.state
+    });
+
+    if (!soundEnabled) {
+      console.log('🔇 Sound is disabled');
+      return;
+    }
+
+    if (!audioContext) {
+      console.log('🔇 Audio context not initialized, attempting to initialize...');
+      await initializeAudio();
+      if (!audioContext) {
+        console.error('❌ Failed to initialize audio context');
+        return;
+      }
+    }
+
+    if (playingSound) {
+      console.log('🔇 Already playing sound');
+      return;
+    }
 
     try {
       playingSound = true;
       
       // Resume audio context if suspended
       if (audioContext.state === 'suspended') {
+        console.log('🔊 Resuming suspended audio context...');
         await audioContext.resume();
       }
 
@@ -393,12 +421,15 @@
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 1);
       
+      console.log('🔊 Alert sound started successfully');
+      
       oscillator.onended = () => {
         playingSound = false;
+        console.log('🔊 Alert sound ended');
       };
       
     } catch (e) {
-      console.error('Failed to play alert sound:', e);
+      console.error('❌ Failed to play alert sound:', e);
       playingSound = false;
     }
   }
