@@ -3,74 +3,119 @@ import numpy as np
 import pandas as pd
 import joblib
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 import matplotlib.pyplot as plt
 
 # --- Path parameters ---
-DATA_PATH = "../../dataset/CICIDS2017 Full dataset.csv"
-MODEL_PATH = "../../models/rf_model.pkl"
-SCALER_PATH = "../../models/rf_scaler.pkl"
-IMPORTANCE_PNG = "../../models/rf_feature_importance.png"
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DATA_PATH = os.path.join(ROOT, "dataset", "CICIDS2017 Full dataset.csv")
+MODELS_DIR = os.path.join(ROOT, "models")
+MODEL_PATH = os.path.join(MODELS_DIR, "rf_model.pkl")
+SCALER_PATH = os.path.join(MODELS_DIR, "rf_scaler.pkl")
+THRESHOLD_PATH = os.path.join(MODELS_DIR, "rf_threshold.txt")
+IMPORTANCE_PNG = os.path.join(MODELS_DIR, "rf_feature_importance.png")
 
 # --- Training parameters (optimized) ---
-MAX_SAMPLES = 150000
-MAX_SYNTH = 50000
-N_ESTIMATORS = 100
+MAX_SAMPLES = 300000
 RANDOM_SEED = 42
+TEST_SIZE = 0.2
+VAL_SIZE = 0.2  # from train portion
 
-print("🔍 Loading BENIGN-only data...")
+print("🔍 Loading dataset...")
 df = pd.read_csv(DATA_PATH, low_memory=False)
 df.columns = df.columns.str.strip()
 
 # --- Label encoding (Attack=1, BENIGN=0) ---
-df['Label'] = df['Label'].apply(lambda x: 0 if x == "BENIGN" else 1)
+label_col = None
+for c in ["Label", "label", " Attack ", "Attack", "attack"]:
+    if c.strip() in df.columns:
+        label_col = c.strip()
+        break
+if label_col is None:
+    raise RuntimeError("Label column not found. Please ensure 'Label' exists in CSV.")
+df[label_col] = df[label_col].astype(str).str.upper().apply(lambda x: 0 if x == "BENIGN" or x == "0" else 1)
 
 # --- Numeric cleaning ---
-df = df.select_dtypes(include=[np.number])
-df.replace([np.inf, -np.inf], np.nan, inplace=True)
-df.dropna(inplace=True)
+all_num = df.select_dtypes(include=[np.number]).copy()
+all_num.replace([np.inf, -np.inf], np.nan, inplace=True)
+all_num.fillna(0.0, inplace=True)
 
 # Debug: Check actual feature count
-print(f"🔍 Actual numeric features count: {len(df.columns)}")
-print(f"🔍 Features: {df.columns.tolist()[:5]} ... {df.columns.tolist()[-5:]}")
+print(f"🔍 Actual numeric features count: {len(all_num.columns)}")
+print(f"🔍 Features: {all_num.columns.tolist()[:5]} ... {all_num.columns.tolist()[-5:]}")
 
 # --- Limit sample size ---
-df = df.sample(n=min(len(df), MAX_SAMPLES), random_state=RANDOM_SEED)
+df_lim = df.sample(n=min(len(df), MAX_SAMPLES), random_state=RANDOM_SEED)
 
 # --- Feature and label split ---
-X = df.drop(columns=['Label'])
-y = df['Label']
+X = all_num.loc[df_lim.index].drop(columns=[label_col], errors='ignore')
+y = df_lim[label_col].astype(int).to_numpy()
 
-# --- Feature scaling ---
+X_train_full, X_test, y_train_full, y_test = train_test_split(
+    X, y, test_size=TEST_SIZE, random_state=RANDOM_SEED, stratify=y
+)
+
+# split train into train/val
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train_full, y_train_full, test_size=VAL_SIZE, random_state=RANDOM_SEED, stratify=y_train_full
+)
+
+# --- Feature scaling (fit on train only) ---
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled = scaler.transform(X_val)
+X_test_scaled = scaler.transform(X_test)
+os.makedirs(MODELS_DIR, exist_ok=True)
 joblib.dump(scaler, SCALER_PATH)
 
-# --- Synthesize attack samples ---
-X_benign = pd.DataFrame(X_scaled[y == 0], columns=X.columns)
-X_attack = pd.DataFrame(X_scaled[y == 1], columns=X.columns)
-
-synth_size = min(len(X_attack), MAX_SYNTH)
-print(f"📊 Synthesizing {synth_size} fake attack samples...")
-
-synth_samples = X_attack.sample(n=synth_size, replace=True, random_state=RANDOM_SEED)
-X_train = pd.concat([X_benign, synth_samples], ignore_index=True)
-y_train = np.concatenate([np.zeros(len(X_benign)), np.ones(len(synth_samples))])
+# --- Model with class weights & fast grid search ---
+print("🔧 Searching best Random Forest hyperparameters (fast CV)...")
+base = RandomForestClassifier(n_estimators=100, n_jobs=-1, random_state=RANDOM_SEED,
+                              class_weight="balanced")
+param_grid = {
+    "n_estimators": [100, 200],
+    "max_depth": [None, 20],
+    "min_samples_leaf": [1, 2],
+    "max_features": ["sqrt", "log2"],
+}
+search = GridSearchCV(base, param_grid, scoring="f1", n_jobs=-1, cv=2, verbose=1)
+search.fit(X_train_scaled, y_train)
+clf = search.best_estimator_
+print(f"✅ Best params: {search.best_params_}")
 
 # --- Train model ---
-print("🚀 Training Random Forest classifier...")
-os.makedirs("models", exist_ok=True)
-clf = RandomForestClassifier(n_estimators=N_ESTIMATORS, n_jobs=-1, random_state=RANDOM_SEED, oob_score=True)
-clf.fit(X_train, y_train)
+print("📐 Scanning threshold on validation set...")
+val_prob = clf.predict_proba(X_val_scaled)[:, 1]
+best_thr, best_f1 = 0.5, -1.0
+for thr in np.linspace(0.05, 0.95, 181):
+    pred = (val_prob >= thr).astype(int)
+    f1 = f1_score(y_val, pred, zero_division=0)
+    if f1 > best_f1:
+        best_f1, best_thr = f1, float(thr)
+print(f"✅ Best threshold (val): {best_thr:.3f} with F1={best_f1:.4f}")
+with open(THRESHOLD_PATH, "w", encoding="utf-8") as f:
+    f.write(str(best_thr))
+
+# Save final model
 joblib.dump(clf, MODEL_PATH)
-print(f"✅ Model saved to {MODEL_PATH}")
+print(f"✅ Model & threshold saved to {MODEL_PATH} and {THRESHOLD_PATH}")
 
 # --- Feature importance visualization ---
 print("📈 Saving feature importance plot...")
-importances = pd.Series(clf.feature_importances_, index=X.columns)
+importances = pd.Series(clf.feature_importances_, index=X_train.columns if hasattr(X_train, 'columns') else np.arange(X_train_scaled.shape[1]))
 importances.sort_values(ascending=False).head(20).plot(kind='barh', figsize=(10,6))
 plt.title("Top 20 Feature Importances (Random Forest)")
 plt.tight_layout()
 plt.savefig(IMPORTANCE_PNG)
 print(f"🖼️ Feature importance saved to {IMPORTANCE_PNG}")
+
+# --- Final test metrics ---
+test_prob = clf.predict_proba(X_test_scaled)[:, 1]
+test_pred = (test_prob >= best_thr).astype(int)
+acc = accuracy_score(y_test, test_pred)
+prec = precision_score(y_test, test_pred, zero_division=0)
+rec = recall_score(y_test, test_pred, zero_division=0)
+f1 = f1_score(y_test, test_pred, zero_division=0)
+print(f"📊 Test: acc={acc:.4f} prec={prec:.4f} rec={rec:.4f} f1={f1:.4f} thr={best_thr:.3f}") 

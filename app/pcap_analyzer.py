@@ -51,11 +51,13 @@ rf_scaler = None
 KITSUNE_THRESHOLD = 0.2  # Default fallback
 AE_THRESHOLD = 1.0       # Default fallback  
 LSTM_THRESHOLD = 10.0    # Default fallback
+CNN_THRESHOLD = 0.5      # Default fallback
+RF_THRESHOLD = 0.5       # Default fallback
 
 def load_models():
     """Load all detection models and scalers"""
     global kitsune_model, ae_model, ae_scaler, lstm_model, lstm_scaler, cnn_model, cnn_scaler, rf_model, rf_scaler
-    global KITSUNE_THRESHOLD, AE_THRESHOLD, LSTM_THRESHOLD
+    global KITSUNE_THRESHOLD, AE_THRESHOLD, LSTM_THRESHOLD, CNN_THRESHOLD, RF_THRESHOLD
     
     try:
         # Load Autoencoder model and scaler
@@ -104,6 +106,12 @@ def load_models():
                 cnn_model = tf.keras.models.load_model("models/cnn_dnn_model.h5")
                 cnn_scaler = joblib.load("models/cnn_dnn_scaler.pkl")
                 logger.info("✅ CNN-DNN model loaded successfully")
+                
+                # Load threshold if available
+                if os.path.exists("models/cnn_dnn_threshold.txt"):
+                    with open("models/cnn_dnn_threshold.txt", "r") as f:
+                        CNN_THRESHOLD = float(f.read().strip())
+                        logger.info(f"✅ CNN-DNN threshold loaded: {CNN_THRESHOLD}")
             except Exception as e:
                 logger.error(f"Failed to load CNN-DNN model: {e}")
                 cnn_model = None
@@ -116,6 +124,13 @@ def load_models():
                 rf_model = joblib.load("models/rf_model.pkl")
                 rf_scaler = joblib.load("models/rf_scaler.pkl")
                 logger.info("✅ Random Forest model loaded successfully")
+                
+                # Load threshold if available
+                if os.path.exists("models/rf_threshold.txt"):
+                    with open("models/rf_threshold.txt", "r") as f:
+                        RF_THRESHOLD = float(f.read().strip())
+                        logger.info(f"✅ Random Forest threshold loaded: {RF_THRESHOLD}")
+                
                 # Log model info for debugging
                 if hasattr(rf_model, 'feature_names_in_'):
                     logger.info(f"Random Forest model has {len(rf_model.feature_names_in_)} feature names")
@@ -537,7 +552,7 @@ class PcapAnalyzer:
     def _detect_threats(self, features: List[float], packet_info: Dict) -> Dict[str, Any]:
         """Perform threat detection using multiple models"""
         global kitsune_model, ae_model, ae_scaler, lstm_model, lstm_scaler, cnn_model, cnn_scaler, rf_model, rf_scaler
-        global KITSUNE_THRESHOLD, AE_THRESHOLD, LSTM_THRESHOLD
+        global KITSUNE_THRESHOLD, AE_THRESHOLD, LSTM_THRESHOLD, CNN_THRESHOLD, RF_THRESHOLD
         
         detection_results = {
             'packet_info': packet_info,
@@ -642,12 +657,12 @@ class PcapAnalyzer:
                     X = cnn_scaler.transform(features_array.reshape(1, -1))
                 X = np.expand_dims(X, axis=-1)
                 prob = cnn_model.predict(X, verbose=0)[0][0]
-                is_attack = prob >= 0.5
+                is_attack = prob >= CNN_THRESHOLD
                 
                 result = {
                     'model': 'CNN-DNN',
                     'probability': float(prob),
-                    'threshold': 0.5,
+                    'threshold': CNN_THRESHOLD,
                     'prediction': 'Attack' if is_attack else 'Normal',
                     'confidence': float(prob) if is_attack else float(1 - prob)
                 }
@@ -687,7 +702,7 @@ class PcapAnalyzer:
                 result = {
                     'model': 'Random Forest',
                     'probability': prob,
-                    'threshold': 0.5,
+                    'threshold': RF_THRESHOLD,
                     'prediction': 'Attack' if is_attack else 'Normal',
                     'confidence': prob if is_attack else (1 - prob)
                 }

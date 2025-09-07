@@ -1,9 +1,12 @@
 import numpy as np
-## Prep AfterImage cython package
+## Prep AfterImage package
 import os
 import subprocess
-import pyximport
-pyximport.install()
+try:
+    import pyximport
+    pyximport.install()
+except ImportError:
+    print("Warning: pyximport not available, using pure Python AfterImage")
 import AfterImage as af
 #import AfterImage_NDSS as af
 

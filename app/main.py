@@ -232,10 +232,12 @@ RF_SCALER_PATH = os.path.join(MODEL_DIR, "rf_scaler.pkl")
 KITSUNE_THRESHOLD = 0.2  # Default fallback
 AE_THRESHOLD = 1.0       # Default fallback  
 LSTM_THRESHOLD = 10.0    # Default fallback
+CNN_THRESHOLD = 0.5      # Default fallback
+RF_THRESHOLD = 0.5       # Default fallback
 
 # Load thresholds from files if available
 def load_thresholds():
-    global KITSUNE_THRESHOLD, AE_THRESHOLD, LSTM_THRESHOLD
+    global KITSUNE_THRESHOLD, AE_THRESHOLD, LSTM_THRESHOLD, CNN_THRESHOLD, RF_THRESHOLD
     
     # Load Autoencoder threshold
     if os.path.exists("models/ae_threshold.txt"):
@@ -254,6 +256,24 @@ def load_thresholds():
                 print(f"✅ LSTM-AE threshold loaded: {LSTM_THRESHOLD}")
         except Exception as e:
             print(f"⚠️ Failed to load LSTM threshold: {e}")
+    
+    # Load CNN-DNN threshold
+    if os.path.exists("models/cnn_dnn_threshold.txt"):
+        try:
+            with open("models/cnn_dnn_threshold.txt", "r") as f:
+                CNN_THRESHOLD = float(f.read().strip())
+                print(f"✅ CNN-DNN threshold loaded: {CNN_THRESHOLD}")
+        except Exception as e:
+            print(f"⚠️ Failed to load CNN threshold: {e}")
+    
+    # Load Random Forest threshold
+    if os.path.exists("models/rf_threshold.txt"):
+        try:
+            with open("models/rf_threshold.txt", "r") as f:
+                RF_THRESHOLD = float(f.read().strip())
+                print(f"✅ Random Forest threshold loaded: {RF_THRESHOLD}")
+        except Exception as e:
+            print(f"⚠️ Failed to load RF threshold: {e}")
     
     # Note: Kitsune threshold is typically model-specific and may need manual tuning
     # For now, we keep the default value
@@ -448,9 +468,9 @@ def model_predict(features, model_name):
         X = cnn_scaler.transform(np.array(features).reshape(1, -1))
         X = np.expand_dims(X, axis=-1)
         prob = cnn_model.predict(X)[0][0]
-        label = int(prob >= 0.5)
+        label = int(prob >= CNN_THRESHOLD)
         prediction = "Attack" if label == 1 else "Normal"
-        result = {"model": "CNN-DNN", "probability": float(prob), "prediction": prediction}
+        result = {"model": "CNN-DNN", "probability": float(prob), "threshold": CNN_THRESHOLD, "prediction": prediction}
     elif model_name == "rf":
         if rf_model is None or rf_scaler is None:
             return {"error": "Random Forest model not loaded"}
@@ -484,7 +504,7 @@ def model_predict(features, model_name):
         prediction = "Attack" if label == 1 else "Normal"
         print(f"🔍 RF Debug - Final prediction: '{prediction}' (length: {len(prediction)})")
         
-        result = {"model": "Random Forest", "probability": prob, "prediction": prediction}
+        result = {"model": "Random Forest", "probability": prob, "threshold": RF_THRESHOLD, "prediction": prediction}
         print(f"🔍 RF Debug - Result object: {result}")
         
         return result
