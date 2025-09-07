@@ -8,6 +8,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from app.timezone_utils import get_beijing_time, get_beijing_time_iso
 from pymongo import MongoClient
+import os
 from fastapi import APIRouter, HTTPException
 import asyncio
 import ipaddress
@@ -21,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# MongoDB connection
-client = MongoClient("mongodb://localhost:27017")
+# MongoDB connection (prefer environment variable for cloud deployment)
+client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client['PreTectNIDS']
 attack_locations = db['attack_locations']
 geo_cache = db['geo_cache']

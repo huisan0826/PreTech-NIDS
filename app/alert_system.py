@@ -10,6 +10,7 @@ from dataclasses import dataclass, asdict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.responses import JSONResponse
 from pymongo import MongoClient
+import os
 from collections import defaultdict, deque
 import threading
 import time
@@ -22,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# MongoDB connection
-client = MongoClient("mongodb://localhost:27017")
+# MongoDB connection (prefer environment variable for cloud deployment)
+client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client['PreTectNIDS']
 alerts_collection = db['alerts']
 alert_rules_collection = db['alert_rules']
