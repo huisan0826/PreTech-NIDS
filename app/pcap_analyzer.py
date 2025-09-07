@@ -253,7 +253,7 @@ class PcapAnalyzer:
                 float(packet_len),     # 0: Packet length
                 float(src_port),       # 1: Source port
                 float(dst_port),       # 2: Destination port
-                float(int(tcp_flags)),      # 3: TCP flags (修正FlagValue类型)
+                float(int(tcp_flags)),      # 3: TCP flags 
                 float(tcp_window),     # 4: TCP window size
                 float(tcp_seq),        # 5: TCP sequence number
                 float(tcp_ack),        # 6: TCP acknowledgment number

@@ -109,7 +109,8 @@ app.include_router(alert_router, prefix="/api/alerts", tags=["alerts"])
 app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 # ---------- MongoDB ----------
-client = MongoClient("mongodb://localhost:27017")
+# Prefer environment variable for cloud deployments (e.g., Render/MongoDB Atlas)
+client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client['PreTectNIDS']
 reports = db['detection_reports']
 

@@ -30,8 +30,8 @@ import os
 
 router = APIRouter()
 
-# MongoDB connection
-client = MongoClient("mongodb://localhost:27017")
+# MongoDB connection (use env var if provided)
+client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client["PreTectNIDS"]
 users_collection = db["users"]
 password_reset_collection = db["password_resets"]
