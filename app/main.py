@@ -9,6 +9,7 @@ import tensorflow as tf
 from tensorflow import keras
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from pymongo import MongoClient
@@ -105,8 +106,9 @@ app.include_router(pcap_router, prefix="/api/pcap", tags=["pcap"])
 app.include_router(alert_router, prefix="/api/alerts", tags=["alerts"])
 
 
-# Add static file serving for uploads
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+# Add static file serving for uploads (use absolute path to avoid CWD issues)
+static_dir = Path(__file__).resolve().parent.parent / "uploads"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # ---------- MongoDB ----------
 # Prefer environment variable for cloud deployments (e.g., Render/MongoDB Atlas)
@@ -278,8 +280,14 @@ def load_thresholds():
         except Exception as e:
             print(f"⚠️ Failed to load RF threshold: {e}")
     
-    # Note: Kitsune threshold is typically model-specific and may need manual tuning
-    # For now, we keep the default value
+    # Load Kitsune threshold (produced by training/evaluation pipeline)
+    if os.path.exists("models/kitsune_threshold.txt"):
+        try:
+            with open("models/kitsune_threshold.txt", "r") as f:
+                KITSUNE_THRESHOLD = float(f.read().strip())
+                print(f"✅ Kitsune threshold loaded: {KITSUNE_THRESHOLD}")
+        except Exception as e:
+            print(f"⚠️ Failed to load Kitsune threshold: {e}")
 
 # Load thresholds on startup
 load_thresholds()
@@ -454,7 +462,15 @@ def model_predict(features, model_name):
     elif model_name == "kitsune":
         if kitsune_model is None:
             return {"error": "Kitsune model not loaded"}
-        score = kitsune_model.execute(np.array(features).reshape(1, -1)[0])
+        try:
+            arr = np.array(features, dtype=float).flatten()
+        except Exception:
+            return {"error": f"Invalid features for Kitsune: expected numeric list, got {type(features)}"}
+        if arr.size < 100:
+            arr = np.pad(arr, (0, 100 - arr.size), mode='constant')
+        elif arr.size > 100:
+            arr = arr[:100]
+        score = kitsune_model.execute(arr)
         prediction = "Attack" if score > KITSUNE_THRESHOLD else "Normal"
         result = {"model": "Kitsune", "anomaly_score": float(score), "prediction": prediction}
     elif model_name == "autoencoder":

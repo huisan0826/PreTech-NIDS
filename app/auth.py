@@ -852,8 +852,12 @@ async def save_avatar(file: UploadFile, username: str) -> str:
         filename = f"{username}_{secrets.token_urlsafe(8)}.{file_extension}"
         file_path = AVATAR_UPLOAD_DIR / filename
         
-        # Save file
+        # Save file (ensure stream at beginning to avoid empty writes)
         with open(file_path, "wb") as buffer:
+            try:
+                file.file.seek(0)
+            except Exception:
+                pass
             shutil.copyfileobj(file.file, buffer)
         
         return filename
@@ -864,7 +868,7 @@ def get_avatar_url(filename: str) -> str:
     """Get avatar URL"""
     if not filename:
         return None
-    # Return full URL for frontend access
+    # Return full URL for frontend access (localhost for development)
     return f"http://localhost:8000/static/avatars/{filename}"
 
 def delete_old_avatar(username: str):

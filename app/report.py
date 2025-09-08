@@ -53,9 +53,12 @@ def get_reports(
         # Build query filter
         query_filter = {}
         
-        # Model filter
+        # Model filter: support both legacy top-level 'model' and nested 'result.model'
         if model:
-            query_filter["model"] = model
+            query_filter["$or"] = [
+                {"model": {"$regex": model, "$options": "i"}},
+                {"result.model": {"$regex": model, "$options": "i"}}
+            ]
         
         # Status filter - filter by prediction result
         if status:

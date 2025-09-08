@@ -187,7 +187,14 @@ def evaluate_rf(X: np.ndarray, y: np.ndarray, save_plots: bool = True) -> Dict[s
         plot_roc_pr_curves(y, prob, "rf", plots_dir)
         plot_class_distribution(y, "rf", os.path.join(plots_dir, "rf_distribution.png"))
     
-    return evaluate_metrics(y, prob, pred)
+    metrics = evaluate_metrics(y, prob, pred)
+    # Persist chosen threshold for deployment
+    try:
+        with open(os.path.join(MODELS_DIR, "rf_threshold.txt"), "w", encoding="utf-8") as f:
+            f.write(str(threshold))
+    except Exception as e:
+        print(f"[RF] Failed to write threshold: {e}")
+    return metrics
 
 
 def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, save_plots: bool = True) -> Dict[str, float]:
@@ -226,7 +233,14 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
             plot_roc_pr_curves(y, prob, "ae", plots_dir)
             plot_class_distribution(y, "ae", os.path.join(plots_dir, "ae_distribution.png"))
         
-        return evaluate_metrics(y, prob, pred)
+        metrics = evaluate_metrics(y, prob, pred)
+        # persist threshold for deployment
+        try:
+            with open(os.path.join(MODELS_DIR, "ae_threshold.txt"), "w", encoding="utf-8") as f:
+                f.write(str(thr))
+        except Exception as e:
+            print(f"[AE] Failed to write threshold: {e}")
+        return metrics
 
     if model_name == "lstm_ae":
         model_path, scaler_path = paths("lstm_ae")
@@ -250,7 +264,13 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
             plot_roc_pr_curves(y, prob, "lstm_ae", plots_dir)
             plot_class_distribution(y, "lstm_ae", os.path.join(plots_dir, "lstm_ae_distribution.png"))
         
-        return evaluate_metrics(y, prob, pred)
+        metrics = evaluate_metrics(y, prob, pred)
+        try:
+            with open(os.path.join(MODELS_DIR, "lstm_ae_threshold.txt"), "w", encoding="utf-8") as f:
+                f.write(str(thr))
+        except Exception as e:
+            print(f"[LSTM_AE] Failed to write threshold: {e}")
+        return metrics
 
     if model_name == "cnn_dnn":
         model_path, scaler_path = paths("cnn_dnn")
@@ -273,7 +293,13 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
             plot_roc_pr_curves(y, prob, "cnn_dnn", plots_dir)
             plot_class_distribution(y, "cnn_dnn", os.path.join(plots_dir, "cnn_dnn_distribution.png"))
         
-        return evaluate_metrics(y, prob, pred)
+        metrics = evaluate_metrics(y, prob, pred)
+        try:
+            with open(os.path.join(MODELS_DIR, "cnn_dnn_threshold.txt"), "w", encoding="utf-8") as f:
+                f.write(str(threshold))
+        except Exception as e:
+            print(f"[CNN_DNN] Failed to write threshold: {e}")
+        return metrics
 
     return {}
 
@@ -282,10 +308,29 @@ def evaluate_kitsune(X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
     # Kitsune expects 100-dim features; we'll zero-pad if needed
     model_path = os.path.join(MODELS_DIR, "kitsune_model.pkl")
     if not os.path.exists(model_path):
+        print(f"[KITSUNE] Skip: model not found at {model_path}")
         return {}
     try:
-        import joblib
-        k = joblib.load(model_path)
+        # Ensure KitNET dependency is discoverable during unpickling
+        kitsune_root = os.path.join(ROOT, "kitsune")
+        kitnet_dir = os.path.join(kitsune_root, "KitNET")
+        for p in [kitsune_root, kitnet_dir]:
+            if p not in sys.path:
+                sys.path.append(p)
+
+        import joblib, pickle
+        # Robust load: try joblib, then pickle with latin1 if needed
+        try:
+            k = joblib.load(model_path)
+        except Exception as e1:
+            print(f"[KITSUNE] joblib load failed: {e1}; trying pickle...")
+            try:
+                with open(model_path, 'rb') as f:
+                    k = pickle.load(f)
+            except Exception as e2:
+                print(f"[KITSUNE] pickle default failed: {e2}; trying latin1...")
+                with open(model_path, 'rb') as f:
+                    k = pickle.load(f, encoding='latin1')
         Xk = X
         if Xk.shape[1] < 100:
             pad = np.zeros((Xk.shape[0], 100 - Xk.shape[1]), dtype=float)
@@ -302,8 +347,16 @@ def evaluate_kitsune(X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
             thr = float(np.percentile(scores, 95))
         pred = (scores > thr).astype(int)
         prob = (scores - scores.min()) / (scores.ptp() + 1e-9)
-        return evaluate_metrics(y, prob, pred)
-    except Exception:
+        metrics = evaluate_metrics(y, prob, pred)
+        # also persist selected threshold
+        try:
+            with open(os.path.join(MODELS_DIR, "kitsune_threshold.txt"), "w", encoding="utf-8") as f:
+                f.write(str(thr))
+        except Exception as e:
+            print(f"[KITSUNE] Failed to write threshold: {e}")
+        return metrics
+    except Exception as e:
+        print(f"[KITSUNE] Skip due to error: {e}")
         return {}
 
 
@@ -340,11 +393,11 @@ def main() -> None:
         if r:
             results[name] = r
 
-    # Kitsune (skip for now as requested)
-    # print("\n🔍 Evaluating Kitsune...")
-    # r = evaluate_kitsune(X_test, y_test)
-    # if r:
-    #     results["kitsune"] = r
+    # Kitsune
+    print("\n🔍 Evaluating KITSUNE...")
+    r = evaluate_kitsune(X_test, y_test)
+    if r:
+        results["kitsune"] = r
 
     if not results:
         print("No models evaluated (models missing or dependencies unavailable).")
