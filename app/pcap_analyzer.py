@@ -84,7 +84,11 @@ def load_models():
             import tensorflow as tf
             import joblib
             try:
-                lstm_model = tf.keras.models.load_model("models/lstm_ae_model.h5")
+                # Load model with custom objects to handle compatibility issues
+                custom_objects = {
+                    'InputLayer': tf.keras.layers.InputLayer
+                }
+                lstm_model = tf.keras.models.load_model("models/lstm_ae_model.h5", custom_objects=custom_objects)
                 lstm_scaler = joblib.load("models/lstm_ae_scaler.pkl")
                 logger.info("✅ LSTM-AE model loaded successfully")
                 
@@ -95,15 +99,32 @@ def load_models():
                         logger.info(f"✅ LSTM-AE threshold loaded: {LSTM_THRESHOLD}")
             except Exception as e:
                 logger.error(f"Failed to load LSTM-AE model: {e}")
-                lstm_model = None
-                lstm_scaler = None
+                # Try loading with compile=False to avoid compilation issues
+                try:
+                    lstm_model = tf.keras.models.load_model("models/lstm_ae_model.h5", compile=False)
+                    lstm_scaler = joblib.load("models/lstm_ae_scaler.pkl")
+                    logger.info("✅ LSTM-AE model loaded successfully (without compilation)")
+                    
+                    # Load threshold if available
+                    if os.path.exists("models/lstm_ae_threshold.txt"):
+                        with open("models/lstm_ae_threshold.txt", "r") as f:
+                            LSTM_THRESHOLD = float(f.read().strip())
+                            logger.info(f"✅ LSTM-AE threshold loaded: {LSTM_THRESHOLD}")
+                except Exception as e2:
+                    logger.error(f"Failed to load LSTM-AE model (second attempt): {e2}")
+                    lstm_model = None
+                    lstm_scaler = None
         
         # Load CNN-DNN model and scaler
         if os.path.exists("models/cnn_dnn_model.h5") and os.path.exists("models/cnn_dnn_scaler.pkl"):
             import tensorflow as tf
             import joblib
             try:
-                cnn_model = tf.keras.models.load_model("models/cnn_dnn_model.h5")
+                # Load model with custom objects to handle compatibility issues
+                custom_objects = {
+                    'InputLayer': tf.keras.layers.InputLayer
+                }
+                cnn_model = tf.keras.models.load_model("models/cnn_dnn_model.h5", custom_objects=custom_objects)
                 cnn_scaler = joblib.load("models/cnn_dnn_scaler.pkl")
                 logger.info("✅ CNN-DNN model loaded successfully")
                 
@@ -114,8 +135,21 @@ def load_models():
                         logger.info(f"✅ CNN-DNN threshold loaded: {CNN_THRESHOLD}")
             except Exception as e:
                 logger.error(f"Failed to load CNN-DNN model: {e}")
-                cnn_model = None
-                cnn_scaler = None
+                # Try loading with compile=False to avoid compilation issues
+                try:
+                    cnn_model = tf.keras.models.load_model("models/cnn_dnn_model.h5", compile=False)
+                    cnn_scaler = joblib.load("models/cnn_dnn_scaler.pkl")
+                    logger.info("✅ CNN-DNN model loaded successfully (without compilation)")
+                    
+                    # Load threshold if available
+                    if os.path.exists("models/cnn_dnn_threshold.txt"):
+                        with open("models/cnn_dnn_threshold.txt", "r") as f:
+                            CNN_THRESHOLD = float(f.read().strip())
+                            logger.info(f"✅ CNN-DNN threshold loaded: {CNN_THRESHOLD}")
+                except Exception as e2:
+                    logger.error(f"Failed to load CNN-DNN model (second attempt): {e2}")
+                    cnn_model = None
+                    cnn_scaler = None
         
         # Load Random Forest model and scaler
         if os.path.exists("models/rf_model.pkl") and os.path.exists("models/rf_scaler.pkl"):
@@ -145,13 +179,34 @@ def load_models():
         if os.path.exists("models/kitsune_model.pkl"):
             import joblib
             import sys
+            import pickle
             # Add kitsune path to sys.path
             kitsune_path = os.path.join(os.path.dirname(__file__), "..", "kitsune")
             if kitsune_path not in sys.path:
                 sys.path.append(kitsune_path)
             try:
-                kitsune_model = joblib.load("models/kitsune_model.pkl")
-                logger.info("✅ Kitsune model loaded successfully")
+                # Try loading with different protocols to handle compatibility issues
+                try:
+                    # First try with default protocol
+                    kitsune_model = joblib.load("models/kitsune_model.pkl")
+                    logger.info("✅ Kitsune model loaded successfully")
+                except Exception as e1:
+                    logger.warning(f"Failed to load Kitsune with joblib: {e1}")
+                    # Try with pickle directly and different protocols
+                    try:
+                        with open("models/kitsune_model.pkl", 'rb') as f:
+                            kitsune_model = pickle.load(f)
+                        logger.info("✅ Kitsune model loaded successfully (with pickle)")
+                    except Exception as e2:
+                        logger.warning(f"Failed to load Kitsune with pickle: {e2}")
+                        # Try with protocol 4 (compatible with older Python versions)
+                        try:
+                            with open("models/kitsune_model.pkl", 'rb') as f:
+                                kitsune_model = pickle.load(f, encoding='latin1')
+                            logger.info("✅ Kitsune model loaded successfully (with latin1 encoding)")
+                        except Exception as e3:
+                            logger.error(f"Failed to load Kitsune model (all attempts failed): {e3}")
+                            kitsune_model = None
             except Exception as e:
                 logger.error(f"Failed to load Kitsune model: {e}")
                 kitsune_model = None
