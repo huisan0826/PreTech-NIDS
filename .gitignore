@@ -75,3 +75,13 @@ dashboard/.svelte-kit/
 *.tmp
 *.temp
 node_modules
+
+# MongoDB data files
+mongodb-data/
+*.wt
+*.lock
+WiredTiger*
+_mdb_catalog*
+collection-*
+index-*
+sizeStorer*
