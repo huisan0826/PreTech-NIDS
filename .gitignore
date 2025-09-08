@@ -46,15 +46,9 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-models/*.h5
-models/*.pkl
-models/*.tflite
-models/*.png
-models/*.onnx
-models/*_threshold*.txt
-!models/*_threshold*.txt
-models/evaluation_plots/
-models/model_assets/
+# Ignore entire models directory (keep only .gitkeep if present)
+models/
+!models/.gitkeep
 uploads/
 data/
 outputs/
