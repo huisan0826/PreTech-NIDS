@@ -50,7 +50,13 @@ models/*.h5
 models/*.pkl
 models/*.tflite
 models/*.png
+models/*.onnx
+models/*_threshold*.txt
+models/evaluation_plots/
+models/model_assets/
 uploads/
+data/
+outputs/
 *.pcap
 *.tsv
 *.csv
