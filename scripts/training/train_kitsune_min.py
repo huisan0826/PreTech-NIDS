@@ -77,7 +77,7 @@ def main() -> None:
 
     input_dim = len(features[0])
     print(f"🔧 Initializing KitNET with input dimension: {input_dim}")
-    kitnet = KitNET(input_dim=input_dim)
+    kitnet = KitNET(n=input_dim)
 
     # Unsupervised learning phase on CICIDS2017 traffic
     print("🚀 Starting unsupervised training on CICIDS2017 data...")

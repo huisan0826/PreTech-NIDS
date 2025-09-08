@@ -2,6 +2,9 @@
 """
 Create Default Admin Account for PreTech-NIDS
 This script creates a default admin account for the system.
+
+IMPORTANT: The role must be set to "admin" (not "administrator") 
+to match the UserRole.ADMIN constant in app/auth.py
 """
 
 import sys
@@ -57,6 +60,7 @@ def main():
         admin_username = "admin"
         admin_email = "admin@pretect-nids.com"
         admin_password = "admin123"  # Change this in production!
+        admin_role = "admin"  # 使用正确的角色名称，与UserRole.ADMIN一致
         
         print(f"\n👤 Creating admin user: {admin_username}")
         
@@ -71,13 +75,14 @@ def main():
             try:
                 reset = input("\n🔄 Do you want to reset the admin password? (y/N): ").lower().strip()
                 if reset == 'y' or reset == 'yes':
-                    # Update password
+                    # Update password and role
                     hashed_password = pwd_context.hash(admin_password)
                     users_collection.update_one(
                         {"username": admin_username},
-                        {"$set": {"password": hashed_password}}
+                        {"$set": {"password": hashed_password, "role": admin_role}}
                     )
                     print(f"✅ Admin password has been reset to: {admin_password}")
+                    print(f"✅ Admin role has been set to: {admin_role}")
                 else:
                     print("❌ Operation cancelled.")
             except KeyboardInterrupt:
@@ -96,7 +101,7 @@ def main():
             "created_at": get_beijing_time_iso(),
             "is_active": True,
             "is_admin": True,  # Admin flag
-            "role": "administrator"
+            "role": admin_role  # 使用正确的角色名称
         }
         
         result = users_collection.insert_one(admin_doc)

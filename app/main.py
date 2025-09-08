@@ -110,6 +110,9 @@ app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 # ---------- MongoDB ----------
 # Prefer environment variable for cloud deployments (e.g., Render/MongoDB Atlas)
+# For local development, you can use MongoDB Atlas or local MongoDB
+# To use MongoDB Atlas: Set MONGODB_URI environment variable to your Atlas connection string
+# Example: mongodb+srv://username:password@cluster.mongodb.net/PreTectNIDS
 client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client['PreTectNIDS']
 reports = db['detection_reports']
