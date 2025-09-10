@@ -158,7 +158,7 @@
       // Handle actual database model names (case-sensitive)
       'Autoencoder': 'bg-green',
       'CNN-DNN': 'bg-orange', 
-      'LSTM-AE': 'bg-purple',
+      'LSTM': 'bg-purple',
       'Random Forest': 'bg-teal',
       'Kitsune': 'bg-blue',
       // Also handle lowercase versions for consistency

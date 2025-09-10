@@ -226,8 +226,8 @@ MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 KITSUNE_MODEL_PATH = os.path.join(MODEL_DIR, "kitsune_model.pkl")
 AE_MODEL_PATH = os.path.join(MODEL_DIR, "ae_model.h5")
 AE_SCALER_PATH = os.path.join(MODEL_DIR, "ae_scaler.pkl")
-LSTM_MODEL_PATH = os.path.join(MODEL_DIR, "lstm_ae_model.h5")
-LSTM_SCALER_PATH = os.path.join(MODEL_DIR, "lstm_ae_scaler.pkl")
+LSTM_MODEL_PATH = os.path.join(MODEL_DIR, "lstm_model.h5")
+LSTM_SCALER_PATH = os.path.join(MODEL_DIR, "lstm_scaler.pkl")
 CNN_MODEL_PATH = os.path.join(MODEL_DIR, "cnn_dnn_model.h5")
 CNN_SCALER_PATH = os.path.join(MODEL_DIR, "cnn_dnn_scaler.pkl")
 RF_MODEL_PATH = os.path.join(MODEL_DIR, "rf_model.pkl")
@@ -253,12 +253,12 @@ def load_thresholds():
         except Exception as e:
             print(f"⚠️ Failed to load AE threshold: {e}")
     
-    # Load LSTM-AE threshold
-    if os.path.exists("models/lstm_ae_threshold.txt"):
+    # Load LSTM threshold
+    if os.path.exists("models/lstm_threshold.txt"):
         try:
-            with open("models/lstm_ae_threshold.txt", "r") as f:
+            with open("models/lstm_threshold.txt", "r") as f:
                 LSTM_THRESHOLD = float(f.read().strip())
-                print(f"✅ LSTM-AE threshold loaded: {LSTM_THRESHOLD}")
+                print(f"✅ LSTM threshold loaded: {LSTM_THRESHOLD}")
         except Exception as e:
             print(f"⚠️ Failed to load LSTM threshold: {e}")
     
@@ -323,9 +323,9 @@ except Exception as e:
 try:
     lstm_model = keras.models.load_model(LSTM_MODEL_PATH)
     lstm_scaler = joblib.load(LSTM_SCALER_PATH)
-    print("✅ LSTM-AE model loaded successfully")
+    print("✅ LSTM model loaded successfully")
 except Exception as e:
-    print(f"⚠️ Failed to load LSTM-AE model: {e}")
+    print(f"⚠️ Failed to load LSTM model: {e}")
     lstm_model = None
     lstm_scaler = None
 
@@ -445,20 +445,19 @@ def model_predict(features, model_name):
     import numpy as np
     result = {}
     if model_name == "lstm":
-        # LSTM-AE expects (1, 10, 77)
+        # LSTM classifier expects (1, 10, 77)
         if len(features) == 770:
             features = np.array(features).reshape(1, 10, 77)
         elif len(features) == 77:
             features = np.tile(features, (10, 1)).reshape(1, 10, 77)
         else:
-            return {"error": f"LSTM-AE expects 770 (10x77) or 77 features, got {len(features)}"}
+            return {"error": f"LSTM expects 770 (10x77) or 77 features, got {len(features)}"}
         if lstm_model is None or lstm_scaler is None:
-            return {"error": "LSTM-AE model not loaded"}
+            return {"error": "LSTM model not loaded"}
         X = np.array([lstm_scaler.transform(seq) for seq in features])
-        recon = lstm_model.predict(X)
-        mse = float(np.mean(np.square(X - recon)))
-        prediction = "Attack" if mse > LSTM_THRESHOLD else "Normal"
-        result = {"model": "LSTM-AE", "anomaly_score": mse, "prediction": prediction}
+        prob = lstm_model.predict(X)[0][0]
+        prediction = "Attack" if prob >= LSTM_THRESHOLD else "Normal"
+        result = {"model": "LSTM", "probability": prob, "prediction": prediction}
     elif model_name == "kitsune":
         if kitsune_model is None:
             return {"error": "Kitsune model not loaded"}

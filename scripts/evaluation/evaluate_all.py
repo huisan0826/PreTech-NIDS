@@ -242,34 +242,57 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
             print(f"[AE] Failed to write threshold: {e}")
         return metrics
 
-    if model_name == "lstm_ae":
-        model_path, scaler_path = paths("lstm_ae")
-        thr = load_threshold(os.path.join(MODELS_DIR, "lstm_ae_threshold.txt"), 10.0)
+    if model_name == "lstm":
+        model_path = os.path.join(MODELS_DIR, "lstm_model.h5")
+        scaler_path = os.path.join(MODELS_DIR, "lstm_scaler.pkl")
+        thr = load_threshold(os.path.join(MODELS_DIR, "lstm_threshold.txt"), 0.5)
         if not (os.path.exists(model_path) and os.path.exists(scaler_path)):
             return {}
         model = tf.keras.models.load_model(model_path)
         scaler = joblib.load(scaler_path)
-        # repeat features to 10 time-steps as used in inference code
+        
+        # Create sequences for LSTM classifier
+        def create_sequences_lstm(X, timesteps=10):
+            Xs = []
+            for i in range(len(X) - timesteps + 1):
+                Xs.append(X[i:i+timesteps])
+            return np.array(Xs)
+        
         Xs = scaler.transform(X)
-        Xseq = np.tile(Xs[:, None, :], (1, 10, 1))
-        recon = model.predict(Xseq, verbose=0)
-        mse = np.mean((Xseq - recon) ** 2, axis=(1, 2))
-        pred = (mse > thr).astype(int)
-        prob = (mse - mse.min()) / (mse.ptp() + 1e-9)
+        Xseq = create_sequences_lstm(Xs, 10)
+        
+        # For sequences shorter than timesteps, pad with zeros
+        if len(X) < 10:
+            pad_width = 10 - len(X)
+            Xs_padded = np.pad(Xs, ((0, pad_width), (0, 0)), mode='constant', constant_values=0)
+            Xseq = create_sequences_lstm(Xs_padded, 10)
+        
+        prob = model.predict(Xseq, verbose=0).flatten()
+        pred = (prob >= thr).astype(int)
+        
+        # Adjust predictions to match original length
+        if len(pred) > len(y):
+            pred = pred[:len(y)]
+            prob = prob[:len(y)]
+        elif len(pred) < len(y):
+            # Pad with benign predictions for missing timesteps
+            pad_len = len(y) - len(pred)
+            pred = np.concatenate([pred, np.zeros(pad_len, dtype=int)])
+            prob = np.concatenate([prob, np.zeros(pad_len)])
         
         if save_plots:
             plots_dir = os.path.join(MODELS_DIR, "evaluation_plots")
             os.makedirs(plots_dir, exist_ok=True)
-            plot_confusion_matrix(y, pred, "lstm_ae", os.path.join(plots_dir, "lstm_ae_confusion.png"))
-            plot_roc_pr_curves(y, prob, "lstm_ae", plots_dir)
-            plot_class_distribution(y, "lstm_ae", os.path.join(plots_dir, "lstm_ae_distribution.png"))
+            plot_confusion_matrix(y, pred, "lstm", os.path.join(plots_dir, "lstm_confusion.png"))
+            plot_roc_pr_curves(y, prob, "lstm", plots_dir)
+            plot_class_distribution(y, "lstm", os.path.join(plots_dir, "lstm_distribution.png"))
         
         metrics = evaluate_metrics(y, prob, pred)
         try:
-            with open(os.path.join(MODELS_DIR, "lstm_ae_threshold.txt"), "w", encoding="utf-8") as f:
+            with open(os.path.join(MODELS_DIR, "lstm_threshold.txt"), "w", encoding="utf-8") as f:
                 f.write(str(thr))
         except Exception as e:
-            print(f"[LSTM_AE] Failed to write threshold: {e}")
+            print(f"[LSTM] Failed to write threshold: {e}")
         return metrics
 
     if model_name == "cnn_dnn":
@@ -386,8 +409,8 @@ def main() -> None:
     if r:
         results["rf"] = r
 
-    # AE / LSTM-AE / CNN-DNN
-    for name in ["ae", "lstm_ae", "cnn_dnn"]:
+    # AE / LSTM / CNN-DNN
+    for name in ["ae", "lstm", "cnn_dnn"]:
         print(f"\n🔍 Evaluating {name.upper()}...")
         r = evaluate_autoencoder_like(X_test, y_test, name)
         if r:

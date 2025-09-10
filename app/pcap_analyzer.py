@@ -79,8 +79,8 @@ def load_models():
                 ae_model = None
                 ae_scaler = None
         
-        # Load LSTM-AE model and scaler
-        if os.path.exists("models/lstm_ae_model.h5") and os.path.exists("models/lstm_ae_scaler.pkl"):
+        # Load LSTM model and scaler
+        if os.path.exists("models/lstm_model.h5") and os.path.exists("models/lstm_scaler.pkl"):
             import tensorflow as tf
             import joblib
             try:
@@ -88,30 +88,30 @@ def load_models():
                 custom_objects = {
                     'InputLayer': tf.keras.layers.InputLayer
                 }
-                lstm_model = tf.keras.models.load_model("models/lstm_ae_model.h5", custom_objects=custom_objects)
-                lstm_scaler = joblib.load("models/lstm_ae_scaler.pkl")
-                logger.info("✅ LSTM-AE model loaded successfully")
+                lstm_model = tf.keras.models.load_model("models/lstm_model.h5", custom_objects=custom_objects)
+                lstm_scaler = joblib.load("models/lstm_scaler.pkl")
+                logger.info("✅ LSTM model loaded successfully")
                 
                 # Load threshold if available
-                if os.path.exists("models/lstm_ae_threshold.txt"):
-                    with open("models/lstm_ae_threshold.txt", "r") as f:
+                if os.path.exists("models/lstm_threshold.txt"):
+                    with open("models/lstm_threshold.txt", "r") as f:
                         LSTM_THRESHOLD = float(f.read().strip())
-                        logger.info(f"✅ LSTM-AE threshold loaded: {LSTM_THRESHOLD}")
+                        logger.info(f"✅ LSTM threshold loaded: {LSTM_THRESHOLD}")
             except Exception as e:
-                logger.error(f"Failed to load LSTM-AE model: {e}")
+                logger.error(f"Failed to load LSTM model: {e}")
                 # Try loading with compile=False to avoid compilation issues
                 try:
-                    lstm_model = tf.keras.models.load_model("models/lstm_ae_model.h5", compile=False)
-                    lstm_scaler = joblib.load("models/lstm_ae_scaler.pkl")
-                    logger.info("✅ LSTM-AE model loaded successfully (without compilation)")
+                    lstm_model = tf.keras.models.load_model("models/lstm_model.h5", compile=False)
+                    lstm_scaler = joblib.load("models/lstm_scaler.pkl")
+                    logger.info("✅ LSTM model loaded successfully (without compilation)")
                     
                     # Load threshold if available
-                    if os.path.exists("models/lstm_ae_threshold.txt"):
-                        with open("models/lstm_ae_threshold.txt", "r") as f:
+                    if os.path.exists("models/lstm_threshold.txt"):
+                        with open("models/lstm_threshold.txt", "r") as f:
                             LSTM_THRESHOLD = float(f.read().strip())
-                            logger.info(f"✅ LSTM-AE threshold loaded: {LSTM_THRESHOLD}")
+                            logger.info(f"✅ LSTM threshold loaded: {LSTM_THRESHOLD}")
                 except Exception as e2:
-                    logger.error(f"Failed to load LSTM-AE model (second attempt): {e2}")
+                    logger.error(f"Failed to load LSTM model (second attempt): {e2}")
                     lstm_model = None
                     lstm_scaler = None
         
@@ -771,9 +771,9 @@ class PcapAnalyzer:
             except Exception as e:
                 logger.warning(f"Random Forest detection error: {e}")
         
-        # Note: LSTM-AE detection is skipped for single packet analysis
+        # Note: LSTM detection is skipped for single packet analysis
         # LSTM models require time series data (packet sequences), not individual packets
-        # For flow-level analysis, LSTM-AE would be more appropriate
+        # For flow-level analysis, LSTM would be more appropriate
         
         # Remove duplicates from threat types
         detection_results['threat_types'] = list(set(detection_results['threat_types']))
@@ -1321,7 +1321,7 @@ def generate_pcap_report(analysis_results: Dict) -> Dict[str, Any]:
             'detection_thresholds': {
                 'Kitsune': 0.02,
                 'Autoencoder': 0.01,
-                'LSTM-AE': 3.537088,
+                'LSTM': 0.5,
                 'CNN-DNN': 0.5,
                 'Random Forest': 0.5
             }
