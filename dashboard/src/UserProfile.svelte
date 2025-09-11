@@ -265,11 +265,17 @@
 
       success.set('Profile updated successfully!');
       
-      // Update local currentUser
-      currentUser.set(response.data);
+      // Update local currentUser, preserving avatar info if not in response
+      const updatedUserData = {
+        ...response.data,
+        // Preserve existing avatar info if not provided in response
+        avatar: response.data.avatar || $currentUser?.avatar,
+        avatar_url: response.data.avatar_url || $currentUser?.avatar_url
+      };
+      currentUser.set(updatedUserData);
       
       // Update global currentUser store to reflect in sidebar
-      setAuthenticatedUser(response.data);
+      setAuthenticatedUser(updatedUserData);
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -403,13 +409,6 @@
     </div>
   {:else}
     <div class="profile-content">
-      <!-- Success Message -->
-      {#if $success}
-        <div class="success-alert">
-          <span class="success-icon">✅</span>
-          <span class="success-text">{$success}</span>
-        </div>
-      {/if}
 
       <!-- Avatar Management Card -->
       <div class="profile-card">
@@ -417,6 +416,14 @@
           <h2 class="card-title">🖼️ Avatar Management</h2>
           <p class="card-description">Upload and manage your profile picture</p>
         </div>
+
+        <!-- Success Message for Avatar Operations -->
+        {#if $success && ($success.includes('Avatar uploaded') || $success.includes('Avatar deleted'))}
+          <div class="success-alert">
+            <span class="success-icon">✅</span>
+            <span class="success-text">{$success}</span>
+          </div>
+        {/if}
 
         <div class="avatar-section">
           <div class="current-avatar">
@@ -533,6 +540,13 @@
                 <span class="error-text">{$profileError}</span>
               </div>
             {/if}
+            <!-- Success Message for Profile Update -->
+            {#if $success && $success.includes('Profile updated')}
+              <div class="field-success">
+                <span class="success-icon">✅</span>
+                <span class="success-text">{$success}</span>
+              </div>
+            {/if}
           </div>
 
           <div class="form-actions">
@@ -558,6 +572,14 @@
           <h2 class="card-title">🔒 Change Password</h2>
           <p class="card-description">Update your account password for security</p>
         </div>
+
+        <!-- Success Message for Password Change -->
+        {#if $success && $success.includes('Password changed')}
+          <div class="success-alert">
+            <span class="success-icon">✅</span>
+            <span class="success-text">{$success}</span>
+          </div>
+        {/if}
 
         {#if !showPasswordSection}
           <div class="password-toggle">
@@ -800,6 +822,7 @@
     border-radius: 8px;
     font-weight: 500;
     animation: slideIn 0.3s ease;
+    margin: 1rem 2rem 0 2rem;
   }
 
   .success-alert {
@@ -835,6 +858,30 @@
   }
 
   .field-error .error-text {
+    flex: 1;
+  }
+
+  /* Field-level success styling */
+  .field-success {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    animation: slideIn 0.3s ease;
+  }
+
+  .field-success .success-icon {
+    font-size: 1rem;
+  }
+
+  .field-success .success-text {
     flex: 1;
   }
 

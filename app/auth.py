@@ -1439,6 +1439,8 @@ async def update_profile(profile_data: ProfileUpdateRequest, request: Request):
                 "role": updated_user.get("role", get_default_role()),
                 "role_display": UserRole.get_role_display_name(updated_user.get("role", get_default_role())),
                 "permissions": UserRole.get_role_permissions(updated_user.get("role", get_default_role())),
+                "avatar": updated_user.get("avatar"),
+                "avatar_url": get_avatar_url(updated_user.get("avatar")) if updated_user.get("avatar") else None,
                 "created_at": updated_user.get("created_at"),
                 "updated_at": updated_user.get("updated_at"),
                 "message": "Profile updated successfully"
@@ -1460,6 +1462,8 @@ async def update_profile(profile_data: ProfileUpdateRequest, request: Request):
                 "role": updated_user.get("role", get_default_role()),
                 "role_display": UserRole.get_role_display_name(updated_user.get("role", get_default_role())),
                 "permissions": UserRole.get_role_permissions(updated_user.get("role", get_default_role())),
+                "avatar": updated_user.get("avatar"),
+                "avatar_url": get_avatar_url(updated_user.get("avatar")) if updated_user.get("avatar") else None,
                 "created_at": updated_user.get("created_at"),
                 "updated_at": updated_user.get("updated_at"),
                 "message": "Profile updated successfully"
