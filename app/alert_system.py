@@ -158,7 +158,7 @@ class AlertManager:
                 name="Suspicious Port Access",
                 description="Access to commonly attacked ports",
                 alert_type=AlertType.HIGH_RISK_PORT,
-                conditions={"ports": [22, 23, 3389, 445, 135]},
+                conditions={"ports": [22, 23, 80, 443, 8080, 8180, 8009, 3389, 445, 135, 21]},
                 actions=["websocket", "log", "store"]
             ),
             AlertRule(
@@ -625,6 +625,11 @@ class AlertManager:
                 "Unauthorized Access": f"Unauthorized Access Attempt from {source_ip}",
                 "Suspicious Country": f"Suspicious Country Source: {source_ip}",
                 "High Risk Port": f"High Risk Port Access on {target_port}",
+                "Reverse Shell": f"Reverse Shell Connection from {source_ip}",
+                "Backdoor": f"Backdoor Exploitation Activity from {source_ip}",
+                "Tomcat": f"Tomcat Service Targeted on Port {target_port}",
+                "SSH Brute Force": f"SSH Brute Force from {source_ip}",
+                "SYN Flood": f"SYN Flood Detected targeting {target_port}",
                 "BENIGN": f"Benign Traffic from {source_ip}"
             }
             return attack_titles.get(attack_type, f"{attack_type} Detected from {source_ip}")
@@ -659,6 +664,11 @@ class AlertManager:
                 "Unauthorized Access": f"Unauthorized access attempt: {source_ip} tried to access restricted resources on port {target_port}.",
                 "Suspicious Country": f"Suspicious traffic from high-risk country detected. Source IP: {source_ip}. Review geolocation and block if necessary.",
                 "High Risk Port": f"Suspicious activity detected on high-risk port {target_port}. Source IP: {source_ip}.",
+                "Reverse Shell": f"Potential reverse shell connection detected from {source_ip} to port {target_port}. Investigate outbound connections and block suspicious sessions.",
+                "Backdoor": f"Potential backdoor exploitation activity observed from {source_ip}. Check for unauthorized service responses and spawned shells.",
+                "Tomcat": f"Traffic targeting Tomcat-related port {target_port} detected with malicious indicators. Review Tomcat/AJP exposure, authentication and patch level.",
+                "SSH Brute Force": f"SSH brute force behavior detected from {source_ip} against port {target_port}. Implement lockout/MFA and review auth logs.",
+                "SYN Flood": f"SYN flood pattern detected targeting port {target_port}. Consider rate limiting and SYN cookies on perimeter devices.",
                 "BENIGN": f"Benign traffic detected from {source_ip}. No action required."
             }
             return attack_messages.get(attack_type, f"{attack_type} detected from {source_ip}. Target port: {target_port}. Model: {model}. Confidence: {confidence_pct:.1f}%. Immediate investigation recommended.")

@@ -777,6 +777,33 @@ class PcapAnalyzer:
         
         # Remove duplicates from threat types
         detection_results['threat_types'] = list(set(detection_results['threat_types']))
+
+        # Heuristic behavior tagging based on ports/flags (for simulation scenarios)
+        try:
+            pkt = packet_info
+            dst_port = pkt.get('dst_port')
+            tcp_flags = pkt.get('tcp_flags')
+            if detection_results['is_threat']:
+                # SSH brute force (Hydra against port 22)
+                if dst_port in [22]:
+                    detection_results['threat_types'].append('SSH Brute Force')
+                # Tomcat exposure (8080/8180/8009) and general web (80/443)
+                if dst_port in [80, 443, 8080, 8180, 8009]:
+                    detection_results['threat_types'].append('Tomcat')
+                # Reverse shell common handler ports (msf default 4444/4445/5555)
+                if dst_port in [4444, 4445, 5555]:
+                    detection_results['threat_types'].append('Reverse Shell')
+                # vsftpd backdoor pattern (FTP 21 or shell on 6200)
+                if dst_port in [21, 6200]:
+                    detection_results['threat_types'].append('Backdoor')
+                # SYN flood heuristic (SYN only flag)
+                if pkt.get('protocol') == 'TCP' and tcp_flags is not None:
+                    is_syn_only = (tcp_flags & 0x02) and not (tcp_flags & 0x10)
+                    if is_syn_only:
+                        detection_results['threat_types'].append('SYN Flood')
+            detection_results['threat_types'] = list(set(detection_results['threat_types']))
+        except Exception:
+            pass
         
         return detection_results
     
@@ -864,6 +891,29 @@ class PcapAnalyzer:
                 threat_analysis['risk_assessment'] = 'Low'
             else:
                 threat_analysis['risk_assessment'] = 'Minimal'
+
+        # Additional SYN flood pattern aggregation (across packets)
+        try:
+            syn_count_by_port = defaultdict(int)
+            total_tcp_by_port = defaultdict(int)
+            for res in detection_results:
+                pkt = res.get('packet_info', {})
+                if pkt.get('protocol') == 'TCP':
+                    dst_port = pkt.get('dst_port')
+                    if dst_port is None:
+                        continue
+                    total_tcp_by_port[dst_port] += 1
+                    flags = pkt.get('tcp_flags')
+                    if flags is not None:
+                        is_syn_only = (flags & 0x02) and not (flags & 0x10)
+                        if is_syn_only:
+                            syn_count_by_port[dst_port] += 1
+            for port, syn_cnt in syn_count_by_port.items():
+                total_tcp = max(1, total_tcp_by_port.get(port, 1))
+                if syn_cnt >= 100 or (syn_cnt / total_tcp) > 0.6:
+                    threat_analysis['threat_types']['SYN Flood'] += 1
+        except Exception:
+            pass
         
         # Convert defaultdicts to regular dicts for JSON serialization
         threat_analysis['threat_types'] = dict(threat_analysis['threat_types'])
@@ -1096,6 +1146,14 @@ async def export_report_as_pdf(report: Dict) -> Response:
             doc = SimpleDocTemplate(tmp_file.name, pagesize=A4)
             story = []
             styles = getSampleStyleSheet()
+            # Add wrapped paragraph style for narrow table cells
+            wrap_style = ParagraphStyle(
+                'CellWrap',
+                parent=styles['Normal'],
+                fontSize=10,
+                leading=12,
+                wordWrap='CJK'
+            )
             
             # Title
             title_style = ParagraphStyle(
@@ -1128,6 +1186,9 @@ async def export_report_as_pdf(report: Dict) -> Response:
                 ['Generated At', report['generated_at']]
             ]
             
+            # Wrap long value cells
+            for i in range(1, len(summary_data)):
+                summary_data[i][1] = Paragraph(str(summary_data[i][1]), wrap_style)
             summary_table = Table(summary_data, colWidths=[2*inch, 4*inch])
             summary_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -1137,6 +1198,7 @@ async def export_report_as_pdf(report: Dict) -> Response:
                 ('FONTSIZE', (0, 0), (-1, 0), 12),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             story.append(summary_table)
@@ -1154,6 +1216,9 @@ async def export_report_as_pdf(report: Dict) -> Response:
                 ['Threat Types', ', '.join(threat_data['threat_types'].keys()) if threat_data['threat_types'] else 'None']
             ]
             
+            # Wrap long value cells
+            for i in range(1, len(threat_summary)):
+                threat_summary[i][1] = Paragraph(str(threat_summary[i][1]), wrap_style)
             threat_table = Table(threat_summary, colWidths=[2*inch, 4*inch])
             threat_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -1163,6 +1228,7 @@ async def export_report_as_pdf(report: Dict) -> Response:
                 ('FONTSIZE', (0, 0), (-1, 0), 12),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             story.append(threat_table)
@@ -1258,20 +1324,22 @@ def export_report_as_csv(report: Dict) -> Response:
         writer.writerow(['Threat Detection Results'])
         writer.writerow(['Total Threats', threat_data['total_threats']])
         writer.writerow(['Risk Assessment', threat_data['risk_assessment']])
-        writer.writerow(['Threat Types', ', '.join(threat_data['threat_types'].keys()) if threat_data['threat_types'] else 'None'])
+        # Stable column order for Threat Types
+        ordered_types = list(threat_data['threat_types'].keys()) if threat_data['threat_types'] else []
+        writer.writerow(['Threat Types', ', '.join(ordered_types) if ordered_types else 'None'])
         writer.writerow([])
         
-        # Protocol Analysis
+        # Protocol Analysis (stable ordering)
         protocol_data = report['detailed_findings']['protocol_analysis']
         writer.writerow(['Protocol Analysis'])
-        for protocol, count in protocol_data.items():
+        for protocol, count in sorted(protocol_data.items(), key=lambda x: x[0]):
             writer.writerow([protocol, count])
         writer.writerow([])
         
-        # Port Analysis
+        # Port Analysis (top 10 by count desc)
         port_data = report['detailed_findings']['port_analysis']
         writer.writerow(['Top Ports'])
-        for port, count in list(port_data.items())[:10]:  # Top 10 ports
+        for port, count in sorted(port_data.items(), key=lambda x: x[1], reverse=True)[:10]:
             writer.writerow([port, count])
         writer.writerow([])
         
@@ -1334,7 +1402,8 @@ def generate_executive_summary(analysis_results: Dict) -> str:
     """Generate executive summary for the report (improved, more specific)"""
     stats = analysis_results['summary_statistics']
     threats = analysis_results['threat_analysis']
-    threat_types = list(threats['threat_types'].keys())
+    # Normalize threat type keys (trim/case-insensitive) for impact mapping
+    raw_threat_types = list(threats['threat_types'].keys())
     top_ports = list(stats['top_ports'].keys())[:5]
     top_ips = list(threats.get('top_source_ips', []))[:3] if 'top_source_ips' in threats else []
     impact_map = {
@@ -1350,9 +1419,22 @@ def generate_executive_summary(analysis_results: Dict) -> str:
         'Internal Reconnaissance': 'Network mapping',
         'Unauthorized Access': 'Resource compromise',
         'Suspicious Country': 'Potential APT or foreign threat',
-        'High Risk Port': 'Targeted service exploitation'
+        'High Risk Port': 'Targeted service exploitation',
+        # Newly added behavior labels
+        'Anomalous Behavior': 'Potential anomaly; investigate deviations from baseline',
+        'Zero-day Attack': 'Zero-day exploit risk; possible severe compromise',
+        'Known Attack Pattern': 'Known malicious technique likely being executed',
+        'Reverse Shell': 'Remote command/control established; immediate containment required',
+        'Backdoor': 'Unauthorized service backdoor activity; system compromise likely',
+        'Tomcat': 'Web service compromise risk (Tomcat/AJP/manager exposure)',
+        'SSH Brute Force': 'Credential guessing attempts; risk of account takeover',
+        'SYN Flood': 'Service degradation or denial-of-service risk'
     }
-    possible_impact = ', '.join([impact_map.get(t, 'Unknown impact') for t in threat_types]) if threat_types else 'None'
+    # Case-insensitive mapping to avoid Unknown due to variant capitalization/spacing
+    impact_map_ci = {k.lower(): v for k, v in impact_map.items()}
+    normalized_types = [t.strip() for t in raw_threat_types]
+    threat_types = normalized_types
+    possible_impact = ', '.join([impact_map_ci.get(t.lower(), 'Unknown impact') for t in normalized_types]) if normalized_types else 'None'
     summary = f"""
 PCAP Analysis Executive Summary for {analysis_results['filename']}
 
@@ -1438,6 +1520,8 @@ def generate_security_recommendations(analysis_results: Dict) -> List[str]:
         recommendations.append("SSH traffic detected - ensure strong authentication and key management")
     if 80 in top_ports or 443 in top_ports:  # HTTP/HTTPS
         recommendations.append("Web traffic detected - monitor for SQL injection and XSS attempts")
+    if 8080 in top_ports or 8180 in top_ports or 8009 in top_ports:  # Tomcat/AJP
+        recommendations.append("Tomcat/AJP exposed - restrict access, enforce auth, update to latest, review AJP settings")
     if 3389 in top_ports:  # RDP
         recommendations.append("RDP traffic detected - implement multi-factor authentication")
     
@@ -1447,6 +1531,14 @@ def generate_security_recommendations(analysis_results: Dict) -> List[str]:
             recommendations.append("Zero-day attacks detected - update threat intelligence feeds")
         if 'Known Attack Pattern' in threats['threat_types']:
             recommendations.append("Known attack patterns detected - review and update signature databases")
+        if 'SSH Brute Force' in threats['threat_types']:
+            recommendations.append("SSH brute force detected - enable account lockout/MFA, tighten auth policies")
+        if 'SYN Flood' in threats['threat_types']:
+            recommendations.append("SYN flood detected - enable SYN cookies/rate limiting, consider upstream mitigation")
+        if 'Reverse Shell' in threats['threat_types']:
+            recommendations.append("Reverse shell behavior - block outbound C2 ports, inspect EDR logs and quarantine host")
+        if 'Backdoor' in threats['threat_types']:
+            recommendations.append("Backdoor exploitation suspected - validate service binaries/configs and rotate credentials")
     
     # General recommendations
     recommendations.extend([
