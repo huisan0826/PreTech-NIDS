@@ -9,6 +9,16 @@
   let loading = writable(false);
   let error = writable(null);
   let success = writable(null);
+  
+  // Field-specific error states
+  let profileError = writable(null);
+  let passwordError = writable(null);
+  let avatarError = writable(null);
+  
+  // Password field-specific errors
+  let currentPasswordError = writable(null);
+  let newPasswordError = writable(null);
+  let confirmPasswordError = writable(null);
 
   // Form data
   let username = '';
@@ -29,6 +39,53 @@
   $: np_lower = /[a-z]/.test(newPassword);
   $: np_digit = /[0-9]/.test(newPassword);
   $: np_special = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?`~]/.test(newPassword);
+
+  // Password validation functions
+  function validateCurrentPassword(value) {
+    if (!value) return 'Current password is required';
+    return null;
+  }
+
+  function validateNewPassword(value) {
+    if (!value) return 'New password is required';
+    if (value.length < 8) return 'Password must be at least 8 characters long';
+    if (!/[A-Z]/.test(value)) return 'Password must include at least one uppercase letter';
+    if (!/[a-z]/.test(value)) return 'Password must include at least one lowercase letter';
+    if (!/[0-9]/.test(value)) return 'Password must include at least one number';
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(value)) return 'Password must include at least one special character';
+    return null;
+  }
+
+  function validateConfirmPassword(value) {
+    if (!value) return 'Please confirm your new password';
+    if (value !== newPassword) return 'Passwords do not match';
+    return null;
+  }
+
+  function validatePasswordForm() {
+    const errors = {
+      currentPassword: null,
+      newPassword: null,
+      confirmPassword: null
+    };
+    
+    const currentError = validateCurrentPassword(currentPassword);
+    if (currentError) errors.currentPassword = currentError;
+    
+    const newError = validateNewPassword(newPassword);
+    if (newError) errors.newPassword = newError;
+    
+    const confirmError = validateConfirmPassword(confirmPassword);
+    if (confirmError) errors.confirmPassword = confirmError;
+    
+    // Set individual field errors
+    currentPasswordError.set(errors.currentPassword);
+    newPasswordError.set(errors.newPassword);
+    confirmPasswordError.set(errors.confirmPassword);
+    
+    // Return true if all validations pass
+    return !errors.currentPassword && !errors.newPassword && !errors.confirmPassword;
+  }
 
   // Form section states
   let showPasswordSection = false;
@@ -186,14 +243,17 @@
 
   // Update profile information
   async function updateProfile() {
+    // Clear previous errors
+    profileError.set(null);
+    
     if (!username.trim()) {
-      error.set('Username is required');
+      profileError.set('Username is required');
       return;
     }
 
     try {
       loading.set(true);
-      error.set(null);
+      profileError.set(null);
       success.set(null);
 
       const response = await axios.put('http://localhost:8000/auth/profile', {
@@ -221,11 +281,11 @@
       if (e.response?.status === 401) {
         push('/login');
       } else if (e.response?.status === 400) {
-        error.set(e.response.data?.detail || 'Invalid input data');
+        profileError.set(e.response.data?.detail || 'Invalid input data');
       } else if (e.response?.status === 409) {
-        error.set('Username already exists');
+        profileError.set('Username already exists');
       } else {
-        error.set('Failed to update profile');
+        profileError.set('Failed to update profile');
       }
     } finally {
       loading.set(false);
@@ -234,24 +294,20 @@
 
   // Change password
   async function changePassword() {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      error.set('All password fields are required');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      error.set('New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      error.set('New password must be at least 6 characters long');
+    // Clear previous errors
+    currentPasswordError.set(null);
+    newPasswordError.set(null);
+    confirmPasswordError.set(null);
+    passwordError.set(null);
+    
+    // Validate all password fields
+    if (!validatePasswordForm()) {
       return;
     }
 
     try {
       passwordLoading = true;
-      error.set(null);
+      passwordError.set(null);
       success.set(null);
 
       await axios.put('http://localhost:8000/auth/password', {
@@ -278,12 +334,26 @@
       console.error('Password change error:', e);
       if (e.response?.status === 401) {
         if (e.response.data?.detail?.includes('current password')) {
-          error.set('Current password is incorrect');
+          currentPasswordError.set('Current password is incorrect');
         } else {
           push('/login');
         }
+      } else if (e.response?.status === 400) {
+        // Handle validation errors from server
+        const detail = e.response.data?.detail;
+        if (detail && typeof detail === 'string') {
+          if (detail.includes('current password')) {
+            currentPasswordError.set('Current password is incorrect');
+          } else if (detail.includes('password')) {
+            newPasswordError.set(detail);
+          } else {
+            passwordError.set(detail);
+          }
+        } else {
+          passwordError.set('Invalid password data');
+        }
       } else {
-        error.set('Failed to change password');
+        passwordError.set('Failed to change password. Please try again.');
       }
     } finally {
       passwordLoading = false;
@@ -338,14 +408,6 @@
         <div class="success-alert">
           <span class="success-icon">✅</span>
           <span class="success-text">{$success}</span>
-        </div>
-      {/if}
-
-      <!-- Error Message -->
-      {#if $error}
-        <div class="error-alert">
-          <span class="error-icon">⚠️</span>
-          <span class="error-text">{$error}</span>
         </div>
       {/if}
 
@@ -465,6 +527,12 @@
               placeholder="Enter your email (optional)"
               maxlength="255"
             />
+            {#if $profileError}
+              <div class="field-error">
+                <span class="error-icon">⚠️</span>
+                <span class="error-text">{$profileError}</span>
+              </div>
+            {/if}
           </div>
 
           <div class="form-actions">
@@ -518,6 +586,12 @@
                   {showCurrent ? '🙈' : '👁️'}
                 </button>
               </div>
+              {#if $currentPasswordError}
+                <div class="field-error">
+                  <span class="error-icon">⚠️</span>
+                  <span class="error-text">{$currentPasswordError}</span>
+                </div>
+              {/if}
             </div>
 
             <div class="form-group">
@@ -544,6 +618,12 @@
                 <li class={np_digit ? 'ok' : ''}>At least 1 number (0-9)</li>
                 <li class={np_special ? 'ok' : ''}>At least 1 special character (!@#$%^&* etc.)</li>
               </ul>
+              {#if $newPasswordError}
+                <div class="field-error">
+                  <span class="error-icon">⚠️</span>
+                  <span class="error-text">{$newPasswordError}</span>
+                </div>
+              {/if}
             </div>
 
             <div class="form-group">
@@ -562,6 +642,18 @@
                   {showConfirm ? '🙈' : '👁️'}
                 </button>
               </div>
+              {#if $confirmPasswordError}
+                <div class="field-error">
+                  <span class="error-icon">⚠️</span>
+                  <span class="error-text">{$confirmPasswordError}</span>
+                </div>
+              {/if}
+              {#if $passwordError}
+                <div class="field-error">
+                  <span class="error-icon">⚠️</span>
+                  <span class="error-text">{$passwordError}</span>
+                </div>
+              {/if}
             </div>
 
             <div class="form-actions">
@@ -573,7 +665,10 @@
                   currentPassword = '';
                   newPassword = '';
                   confirmPassword = '';
-                  error.set(null);
+                  currentPasswordError.set(null);
+                  newPasswordError.set(null);
+                  confirmPasswordError.set(null);
+                  passwordError.set(null);
                 }}
               >
                 Cancel
@@ -717,6 +812,30 @@
     background-color: #fee2e2;
     color: #991b1b;
     border: 1px solid #fecaca;
+  }
+
+  /* Field-level error styling */
+  .field-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    animation: slideIn 0.3s ease;
+  }
+
+  .field-error .error-icon {
+    font-size: 1rem;
+  }
+
+  .field-error .error-text {
+    flex: 1;
   }
 
   /* Cards */
