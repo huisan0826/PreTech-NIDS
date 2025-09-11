@@ -286,6 +286,12 @@
               {@const selectedIface = $availableInterfaces.find(i => i.name === $selectedInterface)}
               {(selectedIface && selectedIface.display) || $selectedInterface}
             {/if}
+            <br>
+            <small class="interface-help">
+              💡 <strong>Interface Types:</strong> Physical adapters show as "Ethernet/Wireless Interface", 
+              virtual adapters (VMware, Docker, VPN) show as "Virtual Interface", 
+              and system interfaces may show as "Unknown Interface" but are still functional.
+            </small>
           </div>
         </div>
         
@@ -594,6 +600,14 @@
 
   .info-text strong {
     color: #1f2937;
+  }
+
+  .interface-help {
+    color: #6b7280;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+    display: block;
   }
 
   .error-card {

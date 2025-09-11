@@ -130,22 +130,28 @@ current_use_all_models = None
 # ---------- Get available network interfaces ----------
 def get_windows_interfaces_precise():
     try:
-        # 1. Get GUID, description, friendly name
+        # 1. Get GUID, description, friendly name, and status
         print("🔍 Getting Windows network interfaces...")
-        output = subprocess.check_output('wmic nic get GUID,Name,NetConnectionID', shell=True, encoding='gbk', errors='ignore')
+        output = subprocess.check_output('wmic nic get GUID,Name,NetConnectionID,NetEnabled', shell=True, encoding='gbk', errors='ignore')
         lines = output.splitlines()
         guid_map = {}
         for line in lines:
             parts = [p.strip() for p in line.split('  ') if p.strip()]
-            if len(parts) == 3:
-                guid, desc, netid = parts
+            if len(parts) >= 3:
+                guid = parts[0]
+                desc = parts[1] if len(parts) > 1 else "Unknown Description"
+                netid = parts[2] if len(parts) > 2 else "Unknown"
+                enabled = parts[3] if len(parts) > 3 else "Unknown"
                 guid = guid.replace('{','').replace('}','').upper()
-                if netid:
-                    guid_map[guid] = {'desc': desc, 'netid': netid}
+                if netid and netid != "NetConnectionID":  # Skip header
+                    guid_map[guid] = {'desc': desc, 'netid': netid, 'enabled': enabled}
         
         print(f"✅ Found {len(guid_map)} network adapters")
         
-        # 2. Map scapy interface ID to GUID
+        # 2. Get additional interface info using netsh
+        detailed_info = get_interface_detailed_info()
+        
+        # 3. Map scapy interface ID to GUID
         from scapy.all import get_if_list
         interfaces = get_if_list()
         print(f"✅ Scapy found {len(interfaces)} interfaces")
@@ -158,9 +164,12 @@ def get_windows_interfaces_precise():
                 guid = iface.split('_')[-1].replace('{','').replace('}','').upper()
                 info = guid_map.get(guid)
                 if info:
-                    display = f'{info["netid"]} ({info["desc"]}) ({guid[-8:]})'
+                    # Add status information
+                    status = "Enabled" if info.get('enabled', '').lower() == 'true' else "Disabled"
+                    display = f'{info["netid"]} ({info["desc"]}) [{status}] ({guid[-8:]})'
                 else:
-                    display = f'Unknown ({guid[-8:]})'
+                    # Use intelligent interface type identification
+                    display = identify_interface_type(iface, guid)
                 friendly_interfaces.append({'name': iface, 'display': display})
             elif iface.startswith('{') and iface.endswith('}'):
                 # Convert GUID format to NPF format
@@ -168,9 +177,11 @@ def get_windows_interfaces_precise():
                 npf_name = f'\\Device\\NPF_{{{guid}}}'
                 info = guid_map.get(guid)
                 if info:
-                    display = f'{info["netid"]} ({info["desc"]}) ({guid[-8:]})'
+                    status = "Enabled" if info.get('enabled', '').lower() == 'true' else "Disabled"
+                    display = f'{info["netid"]} ({info["desc"]}) [{status}] ({guid[-8:]})'
                 else:
-                    display = f'Unknown ({guid[-8:]})'
+                    # Use intelligent interface type identification
+                    display = identify_interface_type(iface, guid)
                 friendly_interfaces.append({'name': npf_name, 'display': display})
             else:
                 # Other formats (like loopback)
@@ -192,6 +203,67 @@ def get_windows_interfaces_precise():
     except Exception as e:
         print(f'❌ Failed to get friendly interface names: {e}')
         return []
+
+def get_interface_detailed_info():
+    """Get detailed interface information using multiple Windows commands"""
+    interface_info = {}
+    
+    try:
+        # Get interface details using netsh
+        netsh_output = subprocess.check_output('netsh interface show interface', shell=True, encoding='gbk', errors='ignore')
+        lines = netsh_output.splitlines()
+        
+        for line in lines:
+            if 'Enabled' in line or 'Disabled' in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    name = ' '.join(parts[3:])  # Interface name might contain spaces
+                    status = parts[0]
+                    interface_info[name] = {'status': status}
+        
+        print(f"✅ Retrieved detailed info for {len(interface_info)} interfaces via netsh")
+    except Exception as e:
+        print(f"⚠️ Failed to get detailed interface info: {e}")
+    
+    return interface_info
+
+def identify_interface_type(iface_name, guid):
+    """Identify the type of network interface based on name and GUID patterns"""
+    iface_upper = iface_name.upper()
+    guid_upper = guid.upper()
+    
+    # Check for common virtual interface patterns
+    if any(pattern in iface_upper for pattern in ['VMWARE', 'VIRTUAL', 'VMXNET']):
+        return f'VMware Virtual Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['VIRTUALBOX', 'VBOX']):
+        return f'VirtualBox Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['DOCKER', 'CONTAINER', 'BRIDGE']):
+        return f'Docker/Container Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['TAP', 'TUN', 'VPN', 'OPENVPN']):
+        return f'VPN/TAP Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['LOOPBACK', 'LOOP', '127.0.0.1']):
+        return f'Loopback Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['WIRELESS', 'WIFI', '802.11']):
+        return f'Wireless Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['ETHERNET', 'LAN', 'GIGABIT']):
+        return f'Ethernet Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['BLUETOOTH', 'BT']):
+        return f'Bluetooth Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['ISATAP', 'TUNNEL']):
+        return f'Tunnel Interface ({guid[-8:]})'
+    elif any(pattern in iface_upper for pattern in ['MICROSOFT', 'MS']):
+        return f'Microsoft Interface ({guid[-8:]})'
+    else:
+        # Try to get more info about this interface
+        try:
+            from scapy.all import resolve_iface
+            resolved = resolve_iface(iface_name)
+            if hasattr(resolved, 'network_name') and resolved.network_name:
+                return f'{resolved.network_name} ({guid[-8:]})'
+        except:
+            pass
+        
+        return f'Unknown Interface ({guid[-8:]})'
 
 def get_available_interfaces():
     if platform.system().lower() == 'windows':
