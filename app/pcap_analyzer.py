@@ -333,9 +333,6 @@ class PcapAnalyzer:
                 float(protocol)        # 10: Protocol number
             ])
             
-            # Additional statistical features (66 more features to reach 77)
-            # Use deterministic values based on packet properties instead of random numbers
-            
             # Payload size features
             payload_size = len(packet.payload) if hasattr(packet, 'payload') else 0
             header_size = packet_len - payload_size

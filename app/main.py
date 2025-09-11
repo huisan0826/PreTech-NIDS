@@ -645,7 +645,7 @@ class RealTimeDetector:
         self.packet_count = 0
         self.model = model
         self.models = ['kitsune', 'autoencoder', 'lstm', 'cnn', 'rf']
-        self.interface = None  # Store the interface being used
+        self.interface = None 
         
     def packet_callback(self, packet):
         from scapy.all import IP, TCP, UDP, ICMP
@@ -655,14 +655,10 @@ class RealTimeDetector:
         # These ports are often used for broadcast, multicast, or background services and are not useful for attack detection
         udp_blacklist = [2200, 137, 138, 1900, 5353, 67, 68, 445, 123, 3702, 5355, 500, 4500, 53, 161, 162, 520, 514, 1812, 1813, 69, 111, 2049, 6000] + list(range(49152, 65536))
         tcp_blacklist = [139, 445]
-        
-        # Additional blacklist for common Metasploit and penetration testing ports
-        # These ports are commonly used during setup and should be filtered to reduce false positives
-        # NOTE: Removed 8080, 8180 from blacklist as they are important for Tomcat attack detection
+
         metasploit_ports = [4444, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090]
         tcp_blacklist.extend(metasploit_ports)
-        
-        # Additional blacklist for multicast, broadcast, and local-link IPs
+
         def is_multicast(ip):
             try:
                 return ip and ip.startswith('224.') or ip.startswith('239.')

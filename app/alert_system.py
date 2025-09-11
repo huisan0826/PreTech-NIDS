@@ -412,10 +412,6 @@ class AlertManager:
             # Calculate confidence for alert level determination (not for filtering)
             confidence = self._calculate_confidence(result)
             
-            # CRITICAL FIX: Remove artificial confidence filtering!
-            # If model predicts Attack, we should ALWAYS generate alert
-            # The model's prediction is the authority, not our arbitrary thresholds
-            
             # Check if this is an attack detection
             is_attack = prediction in ['Attack', 1]
             
