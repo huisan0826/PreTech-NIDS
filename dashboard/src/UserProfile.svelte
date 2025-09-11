@@ -531,7 +531,7 @@
               type="email"
               bind:value={email}
               class="form-input"
-              placeholder="Enter your email (optional)"
+              placeholder="Enter your email"
               maxlength="255"
             />
             {#if $profileError}
