@@ -324,7 +324,7 @@
     const model = report.result ? report.result.model || 'Unknown' : 'Unknown';
     const type = report.type === 'real_time_detection' ? 'Real-time Detection' : 'Manual Testing';
     const timestamp = new Date(report.timestamp).toLocaleString('en-US');
-    const networkInterface = report.interface || 'Unknown Interface';
+    const networkInterface = report.interface_display || report.interface || 'Unknown Interface';
     
     let description = `🚨 **Threat Detection Report**\n\n`;
     
@@ -332,7 +332,7 @@
     description += `**Detection Time:** ${timestamp}\n`;
     description += `**Detection Model:** ${model}\n`;
     description += `**Detection Method:** ${type}\n`;
-    if (report.interface) {
+    if (report.interface_display || report.interface) {
       description += `**Network Interface:** ${networkInterface}\n`;
     }
     description += `\n`;
