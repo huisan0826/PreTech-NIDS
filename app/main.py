@@ -801,6 +801,23 @@ class RealTimeDetector:
                 })
         return results
     
+    def _infer_attack_type(self, meta_info):
+        try:
+            dst_port = meta_info.get('dst_port')
+            protocol = meta_info.get('protocol')
+            if dst_port in [22]:
+                return 'SSH Brute Force'
+            if dst_port in [80, 443, 8080, 8180, 8009]:
+                return 'Tomcat'
+            if dst_port in [4444, 4445, 5555]:
+                return 'Reverse Shell'
+            if dst_port in [21, 6200]:
+                return 'Backdoor'
+            # SYN flood hint will be aggregated in alert layer; keep generic here
+        except Exception:
+            pass
+        return None
+
     def save_threat_report(self, results, features, meta_info=None):
         try:
             for result in results:
@@ -831,6 +848,10 @@ class RealTimeDetector:
                     # Add meta info if available
                     if meta_info:
                         report.update(meta_info)
+                    # attach inferred attack_type for downstream alert titles
+                    inferred = self._infer_attack_type(meta_info or {})
+                    if inferred:
+                        report['attack_type'] = inferred
                     reports.insert_one(report)
                     print(f"✅ {result.get('model')} threat report saved")
                     # Record threat location

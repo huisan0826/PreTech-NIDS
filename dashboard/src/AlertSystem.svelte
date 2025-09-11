@@ -977,6 +977,14 @@
         </div>
       </div>
       
+      <div class="stat-card medium">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-content">
+          <div class="stat-value">{$statistics.by_level?.medium || 0}</div>
+          <div class="stat-label">Medium</div>
+        </div>
+      </div>
+      
       <div class="stat-card rules">
         <div class="stat-icon">📋</div>
         <div class="stat-content">
@@ -1596,6 +1604,7 @@
   .stat-card.total { border-left-color: #3b82f6; }
   .stat-card.critical { border-left-color: #ef4444; }
   .stat-card.high { border-left-color: #f59e0b; }
+  .stat-card.medium { border-left-color: #f97316; }
   .stat-card.rules { border-left-color: #10b981; }
 
   .stat-icon {

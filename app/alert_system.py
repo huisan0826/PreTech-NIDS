@@ -100,7 +100,10 @@ class AlertManager:
         self.ip_alert_counts: Dict[str, int] = defaultdict(int)
         self.port_alert_counts: Dict[int, int] = defaultdict(int)
         self.ip_port_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=20))  # For Port Scan detection
+        # Cache for model decision thresholds (loaded from model files if available)
+        self.model_thresholds: Dict[str, float] = {}
         self._load_alert_rules()
+        self._load_model_thresholds()
         self._start_cleanup_task()
     
     def _load_alert_rules(self):
@@ -291,6 +294,45 @@ class AlertManager:
         cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
         cleanup_thread.start()
     
+    def _load_model_thresholds(self):
+        """Load model decision thresholds from files if available (cached)."""
+        try:
+            # Known threshold files in models directory
+            candidates = {
+                "Autoencoder": "models/ae_threshold.txt",
+                "Kitsune": "models/kitsune_threshold.txt",
+                "CNN-DNN": "models/cnn_dnn_threshold.txt",
+                "RandomForest": "models/rf_threshold.txt",
+                "LSTM": "models/lstm_threshold.txt",
+            }
+            for model_name, path in candidates.items():
+                if os.path.exists(path):
+                    try:
+                        with open(path, "r") as f:
+                            value = float(f.read().strip())
+                            self.model_thresholds[model_name] = value
+                    except Exception:
+                        # Ignore malformed file; keep default empty
+                        pass
+            logger.info(f"Loaded model thresholds: {self.model_thresholds}")
+        except Exception as e:
+            logger.warning(f"Failed to load model thresholds: {e}")
+
+    def _get_model_threshold(self, result: Dict) -> Optional[float]:
+        """Resolve decision threshold for current model.
+        Priority: result['threshold'] > cached threshold by model name > None.
+        """
+        # Prefer threshold carried in model result
+        if isinstance(result, dict) and 'threshold' in result:
+            try:
+                return float(result['threshold'])
+            except Exception:
+                pass
+        model_name = result.get('model') if isinstance(result, dict) else None
+        if model_name and model_name in self.model_thresholds:
+            return self.model_thresholds[model_name]
+        return None
+
     async def add_connection(self, websocket: WebSocket):
         """Add new WebSocket connection"""
         await websocket.accept()
@@ -380,6 +422,9 @@ class AlertManager:
                 if target_port:
                     self.port_alert_counts[target_port] += 1
                     logger.info(f"   Updated port alert count for {target_port}: {self.port_alert_counts[target_port]}")
+                # Also update port history even for attack traffic to enable port-scan detection
+                if source_ip and target_port:
+                    self.ip_port_history[source_ip].append((target_port, get_beijing_time()))
                 
                 # Generate alert for each matching rule
                 rules_checked = 0
@@ -394,8 +439,10 @@ class AlertManager:
                     
                     if self._check_rule_conditions(rule, detection_data, result, features):
                         logger.info(f"   ✅ Rule {rule.id} conditions met, creating alert...")
+                        # Prefer incoming attack_type, fallback to detection_data's inferred type
+                        derived_attack_type = attack_type or detection_data.get('attack_type')
                         alert = self._create_alert(
-                            rule, detection_data, result, source_ip, destination_ip, target_port, protocol, confidence, attack_type
+                            rule, detection_data, result, source_ip, destination_ip, target_port, protocol, confidence, derived_attack_type
                         )
                         # Use create_task instead of asyncio.run to avoid event loop conflicts
                         try:
@@ -418,6 +465,8 @@ class AlertManager:
                         logger.warning(f"   ❌ Rule {rule.id} conditions not met for attack detection")
                 
                 logger.info(f"   Summary: {rules_checked} rules checked, {alerts_generated} alerts generated")
+                # After generating model-based alerts, still check for port scan aggregation
+                self._check_port_scan_rule(detection_data, features, source_ip, destination_ip, protocol)
             else:
                 # Not an attack, but check for port scan behavior
                 self._check_port_scan_rule(detection_data, features, source_ip, destination_ip, protocol)
@@ -498,21 +547,60 @@ class AlertManager:
         return None
     
     def _calculate_confidence(self, result: Dict) -> float:
-        """Calculate confidence score from model result for alert level determination"""
+        """Calculate confidence using ratio-based mapping against model threshold.
+        - For probability models: use prob / threshold (if threshold known), else fallback to prob mapping.
+        - For anomaly score models: use score / threshold (if threshold known), else fallback to heuristic.
+        """
+        threshold = self._get_model_threshold(result)
+        # Probability-based models
         if 'probability' in result:
-            return float(result['probability'])
-        elif 'anomaly_score' in result:
-            # For anomaly scores, higher score = higher confidence
-            score = float(result['anomaly_score'])
-            if score > 1000:
-                return 0.95  # Very high confidence
-            elif score > 100:
-                return 0.85  # High confidence
-            elif score > 10:
-                return 0.75  # Medium confidence
+            prob = float(result['probability'])
+            if threshold and threshold > 0:
+                ratio = prob / float(threshold)
+                if ratio > 5:
+                    return 0.95
+                elif ratio > 2:
+                    return 0.85
+                elif ratio > 1:
+                    return 0.70
+                else:
+                    return 0.60
+            # Fallback if no threshold known
+            if prob >= 0.95:
+                return 0.95
+            elif prob >= 0.85:
+                return 0.85
+            elif prob >= 0.70:
+                return 0.70
             else:
-                return 0.7   # Low but acceptable confidence
-        return 0.7  # Default confidence for unknown models
+                return 0.60
+        # Anomaly-score models
+        if 'anomaly_score' in result:
+            score = float(result['anomaly_score'])
+            if threshold and threshold > 0:
+                ratio = score / float(threshold)
+                if ratio > 5:
+                    return 0.95
+                elif ratio > 2:
+                    return 0.85
+                elif ratio > 1:
+                    return 0.75
+                elif ratio > 0.5:
+                    return 0.65
+                else:
+                    return 0.55
+            # Fallback heuristic if threshold unknown
+            if score > 10000:
+                return 0.95
+            elif score > 1000:
+                return 0.85
+            elif score > 100:
+                return 0.75
+            elif score > 10:
+                return 0.65
+            else:
+                return 0.55
+        return 0.6
     
     def _check_rule_conditions(self, rule: AlertRule, detection_data: Dict, result: Dict, features: List) -> bool:
         """Check if alert rule conditions are met"""
@@ -759,10 +847,17 @@ class AlertManager:
     
     async def _execute_alert_actions(self, alert: Alert, actions: List[str]):
         """Execute alert actions"""
+        # Simple suppression: avoid flooding with duplicate model alerts from same source within short time
+        # Exclude the current alert (already appended to recent_alerts upstream)
+        recent_same = [a for a in list(self.recent_alerts)[-50:]
+                       if a.id != alert.id and a.source_ip == alert.source_ip
+                       and a.alert_type == alert.alert_type and a.level == alert.level
+                       and a.model == alert.model]
         for action in actions:
             try:
                 if action == "websocket":
-                    await self.broadcast_alert(alert)
+                    if not recent_same:
+                        await self.broadcast_alert(alert)
                 elif action == "log":
                     logger.warning(f"SECURITY ALERT: {alert.title} - {alert.message}")
                 elif action == "store":
@@ -896,7 +991,15 @@ class AlertManager:
         
         for alert_data in recent_alerts:
             stats["total_alerts_24h"] += 1
-            stats["by_level"][alert_data.get("level", "unknown")] += 1
+            level_value = alert_data.get("level", "unknown")
+            # Normalize to lowercase strings (handle Enum, mixed-case, or dict values)
+            try:
+                if isinstance(level_value, dict) and 'value' in level_value:
+                    level_value = str(level_value['value'])
+                level_key = str(level_value).lower()
+            except Exception:
+                level_key = "unknown"
+            stats["by_level"][level_key] += 1
             stats["by_type"][alert_data.get("alert_type", "unknown")] += 1
             
             if alert_data.get("source_ip"):
