@@ -214,15 +214,27 @@ class AttackMapService:
     
     def extract_source_ip(self, features: List[float], report_data: dict) -> Optional[str]:
         """Extract source IP from network features or report data"""
-        # This is a simplified extraction - in real implementation,
-        # you'd need to parse the actual network packet data
-        
-        # Check if IP is stored in report metadata
-        if 'source_ip' in report_data:
+        # Check if IP is stored in report metadata (most reliable)
+        if 'source_ip' in report_data and report_data['source_ip']:
             return report_data['source_ip']
         
+        # Check if IP is in meta_info
+        if 'meta_info' in report_data and report_data['meta_info']:
+            meta_info = report_data['meta_info']
+            if 'src_ip' in meta_info and meta_info['src_ip']:
+                return meta_info['src_ip']
+        
+        # Check if IP is directly in report_data (meta_info might be flattened)
+        if 'src_ip' in report_data and report_data['src_ip']:
+            return report_data['src_ip']
+        
+        # Check if IP is in result metadata
+        result = report_data.get('result', {})
+        if 'source_ip' in result and result['source_ip']:
+            return result['source_ip']
+        
         # For demo purposes, generate sample IPs based on features
-        # In real implementation, this would come from actual packet capture
+        # This should only be used when no real IP is available
         if features and len(features) >= 4:
             # Use features to generate realistic-looking IPs
             # This is just for demonstration
@@ -406,6 +418,14 @@ def record_threat_location(report_data: dict):
             features = report_data.get('features', [])
             source_ip = attack_map_service.extract_source_ip(features, report_data)
             
+            # Debug: Log IP extraction process
+            logger.info(f"IP extraction debug - report_data keys: {list(report_data.keys())}")
+            if 'meta_info' in report_data:
+                logger.info(f"meta_info: {report_data['meta_info']}")
+            if 'src_ip' in report_data:
+                logger.info(f"src_ip in report_data: {report_data['src_ip']}")
+            logger.info(f"Extracted source_ip: {source_ip}")
+            
             if source_ip:
                 attack_details = {
                     'model': report_data.get('result', {}).get('model'),
@@ -417,5 +437,7 @@ def record_threat_location(report_data: dict):
                 
                 attack_map_service.record_attack(source_ip, attack_details)
                 logger.info(f"Recorded attack from IP {source_ip}")
+            else:
+                logger.warning("No source IP found for attack - skipping location recording")
     except Exception as e:
         logger.error(f"Error recording threat location: {e}") 

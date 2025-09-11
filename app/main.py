@@ -686,13 +686,37 @@ class RealTimeDetector:
         print("Packet summary:", packet.summary())
         print("Meta info:", meta_info)
         
-        # Debug: Log SSH traffic specifically
-        if meta_info.get('dst_port') == 22:
-            print(f"🔍 SSH traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{meta_info['dst_port']}")
-        if meta_info.get('dst_port') in [8080, 8180, 8009]:
-            print(f"🔍 Tomcat/AJP traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{meta_info['dst_port']}")
-        if meta_info.get('dst_port') in [21, 6200]:
-            print(f"🔍 FTP/Backdoor-related traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{meta_info['dst_port']}")
+        # Debug: Log specific attack traffic by port
+        dst_port = meta_info.get('dst_port')
+        if dst_port:
+            if dst_port in [22, 2222, 2200, 2022]:
+                print(f"🔍 SSH traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [80, 443, 8080, 8180, 8009, 8443]:
+                print(f"🔍 Tomcat/Web traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [21, 6200, 31337, 12345, 54321]:
+                print(f"🔍 FTP/Backdoor traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [3389, 3388, 3390]:
+                print(f"🔍 RDP traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [23, 2323, 2300]:
+                print(f"🔍 Telnet traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [1433, 3306, 5432, 1521, 27017, 6379]:
+                print(f"🔍 Database traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [25, 110, 143, 993, 995, 587, 465]:
+                print(f"🔍 Mail server traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [139, 445, 135]:
+                print(f"🔍 SMB/NetBIOS traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [1337, 31337, 12345, 54321, 6666, 6667, 6668, 6669, 7000, 7001, 7002]:
+                print(f"🔍 Malware C2 traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [443, 8443, 9443, 10443, 11443, 12443, 13443, 14443, 15443]:
+                print(f"🔍 Ransomware traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [3333, 4444, 5555, 7777, 8888, 9999, 14444, 15555, 16666, 17777, 18888, 19999]:
+                print(f"🔍 Crypto Mining traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [1883, 8883, 5683, 5684, 1884, 1885, 1886, 1887, 1888, 1889, 1890]:
+                print(f"🔍 IoT traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [502, 503, 504, 102, 44818, 47808, 20000, 20001, 20002, 20003, 20004, 20005]:
+                print(f"🔍 ICS traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
+            elif dst_port in [25565, 25566, 25567, 25568, 25569, 25570, 7777, 7778, 7779, 7780, 7781]:
+                print(f"🔍 Gaming C2 traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{dst_port}")
         
         results = []
         models_to_run = self.models if getattr(self, 'use_all_models', True) else [self.model]

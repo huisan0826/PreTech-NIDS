@@ -436,16 +436,78 @@ class AlertManager:
                     self.ip_port_history[source_ip].append((target_port, get_beijing_time()))
                     # Attach attack_type based strictly on port heuristics
                     if not attack_type and protocol in ['TCP','UDP']:
-                        if target_port in [22]:
+                        # SSH Brute Force
+                        if target_port in [22, 2222, 2200, 2022]:
                             attack_type = 'SSH Brute Force'
-                        elif target_port in [80,443,8080,8180,8009]:
+                        # Tomcat/AJP attacks
+                        elif target_port in [80, 443, 8080, 8180, 8009, 8443]:
                             attack_type = 'Tomcat'
-                        elif target_port in [4444,4445,5555]:
+                        # Reverse Shell / C2
+                        elif target_port in [4444, 4445, 5555, 6666, 7777, 8888, 9999]:
                             attack_type = 'Reverse Shell'
-                        elif target_port in [21,6200]:
+                        # Backdoor / FTP exploits
+                        elif target_port in [21, 6200, 31337, 12345, 54321]:
                             attack_type = 'Backdoor'
+                        # RDP Brute Force
+                        elif target_port in [3389, 3388, 3390]:
+                            attack_type = 'RDP Brute Force'
+                        # Telnet Brute Force
+                        elif target_port in [23, 2323, 2300]:
+                            attack_type = 'Telnet Brute Force'
+                        # VNC attacks
+                        elif target_port in [5900, 5901, 5902, 5903, 5904, 5905]:
+                            attack_type = 'VNC Attack'
+                        # Database attacks
+                        elif target_port in [1433, 3306, 5432, 1521, 27017, 6379]:
+                            attack_type = 'Database Attack'
+                        # Mail server attacks
+                        elif target_port in [25, 110, 143, 993, 995, 587, 465]:
+                            attack_type = 'Mail Server Attack'
+                        # DNS attacks
+                        elif target_port in [53, 5353]:
+                            attack_type = 'DNS Attack'
+                        # SMB/NetBIOS attacks
+                        elif target_port in [139, 445, 135]:
+                            attack_type = 'SMB Attack'
+                        # Web attacks (beyond Tomcat)
+                        elif target_port in [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8443, 9443]:
+                            attack_type = 'Web Attack'
+                        # Malware C2 common ports
+                        elif target_port in [1337, 31337, 12345, 54321, 6666, 6667, 6668, 6669, 7000, 7001, 7002]:
+                            attack_type = 'Malware C2'
+                        # Phishing/Web exploits
+                        elif target_port in [80, 443, 8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009, 8010]:
+                            attack_type = 'Phishing Attack'
+                        # Ransomware communication
+                        elif target_port in [443, 8443, 9443, 10443, 11443, 12443, 13443, 14443, 15443]:
+                            attack_type = 'Ransomware'
+                        # Cryptocurrency mining
+                        elif target_port in [3333, 4444, 5555, 7777, 8888, 9999, 14444, 15555, 16666, 17777, 18888, 19999]:
+                            attack_type = 'Crypto Mining'
+                        # IoT device attacks
+                        elif target_port in [1883, 8883, 5683, 5684, 1884, 1885, 1886, 1887, 1888, 1889, 1890]:
+                            attack_type = 'IoT Attack'
+                        # Industrial Control Systems
+                        elif target_port in [502, 503, 504, 102, 44818, 47808, 20000, 20001, 20002, 20003, 20004, 20005]:
+                            attack_type = 'ICS Attack'
+                        # File sharing attacks
+                        elif target_port in [2049, 111, 2048, 2047, 2046, 2045, 2044, 2043, 2042, 2041, 2040]:
+                            attack_type = 'File Sharing Attack'
+                        # Remote access attacks
+                        elif target_port in [3389, 3388, 3390, 3391, 3392, 3393, 3394, 3395, 3396, 3397, 3398, 3399]:
+                            attack_type = 'Remote Access Attack'
+                        # Gaming/Entertainment (often used for C2)
+                        elif target_port in [25565, 25566, 25567, 25568, 25569, 25570, 7777, 7778, 7779, 7780, 7781]:
+                            attack_type = 'Gaming C2'
+                        # Custom application attacks
+                        elif target_port in [9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008, 9009, 9010]:
+                            attack_type = 'Custom App Attack'
+                        # SYN Flood (based on TCP flags)
                         elif protocol == 'TCP' and target_port and result.get('tcp_flags') == 'SYNONLY':
                             attack_type = 'SYN Flood'
+                        # Port scanning (multiple ports from same IP)
+                        elif target_port and len(self.ip_port_history[source_ip]) > 5:
+                            attack_type = 'Port Scan'
                 
                 # Generate alert for each matching rule
                 rules_checked = 0
@@ -739,6 +801,25 @@ class AlertManager:
                 "Tomcat": f"Tomcat Service Targeted on Port {target_port}",
                 "SSH Brute Force": f"SSH Brute Force from {source_ip}",
                 "SYN Flood": f"SYN Flood Detected targeting {target_port}",
+                "RDP Brute Force": f"RDP Brute Force from {source_ip}",
+                "Telnet Brute Force": f"Telnet Brute Force from {source_ip}",
+                "VNC Attack": f"VNC Attack from {source_ip}",
+                "Database Attack": f"Database Attack on Port {target_port}",
+                "Mail Server Attack": f"Mail Server Attack on Port {target_port}",
+                "DNS Attack": f"DNS Attack on Port {target_port}",
+                "SMB Attack": f"SMB/NetBIOS Attack on Port {target_port}",
+                "Web Attack": f"Web Attack on Port {target_port}",
+                "Malware C2": f"Malware C2 Communication on Port {target_port}",
+                "Phishing Attack": f"Phishing Attack on Port {target_port}",
+                "Ransomware": f"Ransomware Communication on Port {target_port}",
+                "Crypto Mining": f"Cryptocurrency Mining on Port {target_port}",
+                "IoT Attack": f"IoT Device Attack on Port {target_port}",
+                "ICS Attack": f"Industrial Control System Attack on Port {target_port}",
+                "File Sharing Attack": f"File Sharing Attack on Port {target_port}",
+                "Remote Access Attack": f"Remote Access Attack on Port {target_port}",
+                "Gaming C2": f"Gaming C2 Communication on Port {target_port}",
+                "Custom App Attack": f"Custom Application Attack on Port {target_port}",
+                "Port Scan": f"Port Scan Activity from {source_ip}",
                 "BENIGN": f"Benign Traffic from {source_ip}"
             }
             return attack_titles.get(attack_type, f"{attack_type} Detected from {source_ip}")
@@ -778,6 +859,25 @@ class AlertManager:
                 "Tomcat": f"Traffic targeting Tomcat-related port {target_port} detected with malicious indicators. Review Tomcat/AJP exposure, authentication and patch level.",
                 "SSH Brute Force": f"SSH brute force behavior detected from {source_ip} against port {target_port}. Implement lockout/MFA and review auth logs.",
                 "SYN Flood": f"SYN flood pattern detected targeting port {target_port}. Consider rate limiting and SYN cookies on perimeter devices.",
+                "RDP Brute Force": f"RDP brute force attack detected from {source_ip} against port {target_port}. Enable Network Level Authentication and strong passwords.",
+                "Telnet Brute Force": f"Telnet brute force attack detected from {source_ip} against port {target_port}. Disable Telnet and use SSH instead.",
+                "VNC Attack": f"VNC attack detected from {source_ip} against port {target_port}. Secure VNC with strong passwords and VPN access.",
+                "Database Attack": f"Database attack detected from {source_ip} against port {target_port}. Review database access controls and enable encryption.",
+                "Mail Server Attack": f"Mail server attack detected from {source_ip} against port {target_port}. Implement SPF, DKIM, and DMARC policies.",
+                "DNS Attack": f"DNS attack detected from {source_ip} against port {target_port}. Monitor for DNS tunneling and cache poisoning attempts.",
+                "SMB Attack": f"SMB/NetBIOS attack detected from {source_ip} against port {target_port}. Disable SMBv1 and implement strong authentication.",
+                "Web Attack": f"Web application attack detected from {source_ip} against port {target_port}. Review web application security and implement WAF.",
+                "Malware C2": f"Malware command and control communication detected from {source_ip} on port {target_port}. Isolate affected systems immediately.",
+                "Phishing Attack": f"Phishing attack detected from {source_ip} against port {target_port}. Implement email security controls and user training.",
+                "Ransomware": f"Ransomware communication detected from {source_ip} on port {target_port}. Isolate systems and check for encryption activities.",
+                "Crypto Mining": f"Cryptocurrency mining activity detected from {source_ip} on port {target_port}. Check for unauthorized mining software.",
+                "IoT Attack": f"IoT device attack detected from {source_ip} against port {target_port}. Secure IoT devices and implement network segmentation.",
+                "ICS Attack": f"Industrial Control System attack detected from {source_ip} against port {target_port}. Isolate OT networks and review SCADA security.",
+                "File Sharing Attack": f"File sharing attack detected from {source_ip} against port {target_port}. Review file sharing permissions and access controls.",
+                "Remote Access Attack": f"Remote access attack detected from {source_ip} against port {target_port}. Implement VPN and multi-factor authentication.",
+                "Gaming C2": f"Gaming-related command and control communication detected from {source_ip} on port {target_port}. Check for unauthorized gaming software.",
+                "Custom App Attack": f"Custom application attack detected from {source_ip} against port {target_port}. Review application security and access controls.",
+                "Port Scan": f"Port scanning activity detected from {source_ip}. Monitor for reconnaissance activities and potential follow-up attacks.",
                 "BENIGN": f"Benign traffic detected from {source_ip}. No action required."
             }
             return attack_messages.get(attack_type, f"{attack_type} detected from {source_ip}. Target port: {target_port}. Model: {model}. Confidence: {confidence_pct:.1f}%. Immediate investigation recommended.")

@@ -19,12 +19,37 @@
   let refreshTimer = null;
   let mapInitialized = false;
 
-  // Colors for different threat levels
-  const threatColors = {
-    high: '#dc2626',      // Red
-    medium: '#f59e0b',    // Orange  
-    low: '#10b981',       // Green
-    unknown: '#6b7280'    // Gray
+  // Enhanced colors for different attack types
+  const attackTypeColors = {
+    'SSH Brute Force': '#dc2626',      // Red
+    'Tomcat': '#f59e0b',               // Orange
+    'Reverse Shell': '#8b5cf6',        // Purple
+    'Backdoor': '#ef4444',             // Bright Red
+    'RDP Brute Force': '#f97316',      // Orange Red
+    'Database Attack': '#ec4899',      // Pink
+    'Mail Server Attack': '#06b6d4',   // Cyan
+    'DNS Attack': '#84cc16',           // Lime
+    'SMB Attack': '#f59e0b',           // Orange
+    'Web Attack': '#3b82f6',           // Blue
+    'Malware C2': '#dc2626',           // Red
+    'Phishing Attack': '#8b5cf6',      // Purple
+    'Ransomware': '#ef4444',           // Bright Red
+    'Crypto Mining': '#fbbf24',        // Yellow
+    'IoT Attack': '#10b981',           // Green
+    'ICS Attack': '#f59e0b',           // Orange
+    'Port Scan': '#6b7280',            // Gray
+    'SYN Flood': '#dc2626',            // Red
+    'Local Network': '#6b7280',        // Gray
+    'Unknown': '#6b7280'               // Gray
+  };
+
+  // Threat level colors
+  const threatLevelColors = {
+    critical: '#dc2626',      // Red
+    high: '#f59e0b',          // Orange  
+    medium: '#10b981',        // Green
+    low: '#3b82f6',           // Blue
+    info: '#6b7280'           // Gray
   };
 
   onMount(async () => {
@@ -156,6 +181,36 @@
 
     // Group attacks by location for clustering
     const locationGroups = groupAttacksByLocation(attackData);
+    const attackLines = [];
+
+    // Create attack flow lines first
+    attackData.forEach(attack => {
+      if (attack.country !== 'Local Network' && attack.latitude !== 0 && attack.longitude !== 0) {
+        // Create lines to nearby locations or random destinations for demo
+        const targetLat = attack.latitude + (Math.random() - 0.5) * 15;
+        const targetLng = attack.longitude + (Math.random() - 0.5) * 15;
+        
+        const attackType = attack.attack_details?.attack_type || 'Unknown';
+        const color = attackTypeColors[attackType] || attackTypeColors['Unknown'];
+        
+        // @ts-ignore
+        const polyline = window.L.polyline([attack.latitude, attack.longitude], [targetLat, targetLng], {
+          color: color,
+          weight: 2,
+          opacity: 0.7,
+          dashArray: '8, 8'
+        }).bindPopup(`
+          <div style="min-width: 150px;">
+            <h4 style="margin: 0 0 5px 0; color: #1f2937;">${attackType}</h4>
+            <p style="margin: 0 0 5px 0; color: #6b7280;">From: ${attack.country}</p>
+            <p style="margin: 0 0 5px 0; color: #6b7280;">Time: ${new Date(attack.timestamp).toLocaleTimeString()}</p>
+          </div>
+        `);
+        
+        attackMarkers.push(polyline);
+        polyline.addTo(map);
+      }
+    });
 
     // Add markers for each location group
     Object.entries(locationGroups).forEach(([locationKey, attacks]) => {
@@ -164,36 +219,54 @@
       if (lat === 0 && lng === 0) return; // Skip invalid coordinates
 
       const attackCount = attacks.length;
-      const threat_level = getThreatLevel(attackCount);
-      const color = threatColors[threat_level];
       
-      // Create custom marker
+      // Get the most common attack type for this location
+      const attackTypes = attacks.map(a => a.attack_details?.attack_type || 'Unknown');
+      const mostCommonType = attackTypes.reduce((a, b, i, arr) => 
+        arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
+      );
+      
+      // Use attack type color instead of threat level color
+      const color = attackTypeColors[mostCommonType] || attackTypeColors['Unknown'];
+      
+      // Check if this location has recent attacks (last 5 minutes)
+      const isRecent = attacks.some(attack => 
+        new Date(attack.timestamp) > new Date(Date.now() - 5 * 60 * 1000)
+      );
+      
+      // Create pulsing effect for recent attacks
+      const pulseClass = isRecent ? 'pulse-animation' : '';
+      
+      // Create custom marker with attack type indicator
       // @ts-ignore
       const marker = window.L.circleMarker([lat, lng], {
         radius: Math.min(8 + attackCount * 2, 30),
         fillColor: color,
         color: '#ffffff',
-        weight: 2,
-        opacity: 0.8,
-        fillOpacity: 0.6
+        weight: 3,
+        opacity: 0.9,
+        fillOpacity: 0.7,
+        className: pulseClass
       });
 
-      // Create popup content
-      const popupContent = createPopupContent(attacks, attackCount);
+      // Create enhanced popup content
+      const popupContent = createEnhancedPopupContent(attacks, attackCount, mostCommonType, color);
       marker.bindPopup(popupContent);
 
       // Add hover effects
       marker.on('mouseover', function() {
         this.setStyle({
           fillOpacity: 0.9,
-          weight: 3
+          weight: 4,
+          radius: Math.min(10 + attackCount * 2, 35)
         });
       });
 
       marker.on('mouseout', function() {
         this.setStyle({
-          fillOpacity: 0.6,
-          weight: 2
+          fillOpacity: 0.7,
+          weight: 3,
+          radius: Math.min(8 + attackCount * 2, 30)
         });
       });
 
@@ -262,6 +335,71 @@
     `;
   }
 
+  function createEnhancedPopupContent(attacks, attackCount, mostCommonType, color) {
+    const firstAttack = attacks[0];
+    const country = firstAttack.country || 'Unknown';
+    const city = firstAttack.location?.city || 'Unknown';
+    
+    // Get unique models used
+    const models = [...new Set(attacks.map(a => a.attack_details?.model).filter(Boolean))];
+    
+    // Get latest attack time
+    const latestAttack = new Date(Math.max(...attacks.map(a => new Date(a.timestamp))));
+    
+    // Get attack type distribution
+    const typeDistribution = attacks.reduce((acc, attack) => {
+      const type = attack.attack_details?.attack_type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    return `
+      <div style="min-width: 280px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="display: flex; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+          <div style="width: 16px; height: 16px; background-color: ${color}; border-radius: 50%; margin-right: 8px;"></div>
+          <h3 style="margin: 0; color: #1f2937; font-size: 16px; font-weight: 600;">${country} ${city !== 'Unknown' ? `- ${city}` : ''}</h3>
+        </div>
+        
+        <div style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #6b7280; font-size: 14px;">Total Attacks:</span>
+            <span style="color: #1f2937; font-weight: 600; font-size: 14px;">${attackCount}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #6b7280; font-size: 14px;">Primary Type:</span>
+            <span style="color: ${color}; font-weight: 600; font-size: 14px;">${mostCommonType}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #6b7280; font-size: 14px;">Latest:</span>
+            <span style="color: #1f2937; font-weight: 500; font-size: 14px;">${latestAttack.toLocaleTimeString()}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #6b7280; font-size: 14px;">Models:</span>
+            <span style="color: #1f2937; font-weight: 500; font-size: 14px;">${models.join(', ')}</span>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 12px;">
+          <h4 style="margin: 0 0 8px 0; color: #374151; font-size: 14px; font-weight: 600;">Attack Types:</h4>
+          <div style="max-height: 100px; overflow-y: auto;">
+            ${Object.entries(typeDistribution).map(([type, count]) => {
+              const typeColor = attackTypeColors[type] || attackTypeColors['Unknown'];
+              return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="display: flex; align-items: center;">
+                    <div style="width: 8px; height: 8px; background-color: ${typeColor}; border-radius: 50%; margin-right: 6px;"></div>
+                    <span style="color: #374151; font-size: 13px;">${type}</span>
+                  </div>
+                  <span style="color: #6b7280; font-size: 13px; font-weight: 500;">${count}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function updateStatsPanel(stats, windowMinutes) {
     const panel = document.getElementById('map-stats-panel');
     if (!panel) return;
@@ -272,10 +410,10 @@
     
     panel.innerHTML = `
       <div class="stats-content">
-        <h3>🚨 Attack Overview (${title})</h3>
+        <h3>LIVE CYBER THREAT MAP</h3>
         <div class="total-attacks">
           <span class="big-number">${stats.total_attacks || stats.total_attacks_24h || 0}</span>
-          <span class="label">Total Attacks</span>
+          <span class="label">ATTACKS ON THIS DAY</span>
         </div>
         
         <h4>Top Attack Sources</h4>
@@ -284,23 +422,40 @@
             <div class="country-item">
               <span class="country-flag">${getCountryFlag(country.country_code)}</span>
               <span class="country-name">${country.country}</span>
-              <span class="attack-count">${country.attack_count}</span>
+              <span class="attack-count">${country.attack_count} attacks</span>
             </div>
           `).join('')}
         </div>
 
-        <h4 style="margin-top:1rem;">Attack Intensity</h4>
+        <h4 style="margin-top:1rem;">Attack Types</h4>
         <div class="legend-item">
-          <span class="legend-color" style="background: ${threatColors.high}"></span>
-          High (>10 attacks)
+          <span class="legend-color" style="background: #dc2626;"></span>
+          Malware
         </div>
         <div class="legend-item">
-          <span class="legend-color" style="background: ${threatColors.medium}"></span>
-          Medium (3-10 attacks)
+          <span class="legend-color" style="background: #8b5cf6;"></span>
+          Phishing
         </div>
         <div class="legend-item">
-          <span class="legend-color" style="background: ${threatColors.low}"></span>
-          Low (1-2 attacks)
+          <span class="legend-color" style="background: #f59e0b;"></span>
+          Exploit
+        </div>
+        <div class="legend-item">
+          <span class="legend-color" style="background: #10b981;"></span>
+          IoT Attack
+        </div>
+        <div class="legend-item">
+          <span class="legend-color" style="background: #3b82f6;"></span>
+          Web Attack
+        </div>
+        <div class="legend-item">
+          <span class="legend-color" style="background: #6b7280;"></span>
+          Local Network
+        </div>
+        
+        <div class="real-time-indicator">
+          <div class="pulse-dot"></div>
+          <span>LIVE</span>
         </div>
       </div>
     `;
@@ -687,6 +842,67 @@
     color: #1f2937;
     font-size: 0.8rem;
     font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  }
+
+  /* Pulse animation for recent attacks */
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .pulse-animation {
+    animation: pulse 2s infinite;
+  }
+
+  /* Enhanced marker styles */
+  .custom-marker {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  /* Attack flow line styles */
+  .attack-flow-line {
+    stroke-dasharray: 8, 8;
+    animation: dash 1s linear infinite;
+  }
+
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -16;
+    }
+  }
+
+  /* Real-time indicator */
+  .real-time-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1rem;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    border-radius: 20px;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: white;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
   }
 
   /* Responsive Design */
