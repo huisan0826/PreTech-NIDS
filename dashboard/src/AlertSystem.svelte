@@ -16,6 +16,8 @@
 
   // State management
   let alerts = writable([]);
+  let searchQuery = '';
+  let filteredAlerts = [];
   let statistics = writable<AlertStatistics>({});
   let loading = writable(true);
   let error = writable(null);
@@ -636,6 +638,8 @@
     
     // Add to alerts list
     alerts.update(current => [alert, ...current]);
+    // Update filtered list immediately on new alert
+    applySearch();
     
     // Play sound
     playAlertSound();
@@ -696,6 +700,7 @@
       
       if (response.data.success) {
         alerts.set(response.data.alerts);
+        applySearch();
         currentPage = response.data.pagination.page;
         totalPages = response.data.pagination.total_pages;
         totalAlerts = response.data.pagination.total_alerts;
@@ -709,6 +714,40 @@
       loadingAlerts = false;
     }
   }
+
+  function normalizeText(value) {
+    if (!value && value !== 0) return '';
+    try { return String(value).toLowerCase(); } catch { return ''; }
+  }
+
+  function matchesQuery(alert, query) {
+    if (!query) return true;
+    const q = query.toLowerCase().trim();
+    const fields = [
+      alert.title,
+      alert.message,
+      alert.level,
+      alert.alert_type,
+      alert.model,
+      alert.source_ip,
+      alert.destination_ip,
+      alert.target_port,
+      alert.protocol,
+      alert.attack_type,
+      alert?.threat_details?.alert_rule
+    ];
+    return fields.some(f => normalizeText(f).includes(q));
+  }
+
+  function applySearch() {
+    const q = searchQuery;
+    const current = get(alerts);
+    const result = q ? current.filter(a => matchesQuery(a, q)) : current;
+    filteredAlerts = result;
+  }
+
+  // Re-apply search when query changes (bind:input will trigger this)
+  $: searchQuery, applySearch();
 
   async function loadStatistics() {
     try {
@@ -863,7 +902,7 @@
   }
 
   // Since filtering is now done on the server side, we just use the alerts directly
-  $: filteredAlerts = $alerts;
+  // Removed invalid store assignment; filteredAlerts is a plain array now
 
   // Computed property to determine if there are active attacks or warning prompts
   $: activeThreats = $alerts.filter(alert => 
@@ -1051,8 +1090,16 @@
     </div>
   </div>
 
-  <!-- Alerts List -->
+  <!-- Alerts List & Search -->
   <div class="alerts-section">
+    <div class="alerts-toolbar">
+      <input
+        class="search-input"
+        type="search"
+        placeholder="Search alerts by IP, port, title, message, level, type, model..."
+        bind:value={searchQuery}
+      />
+    </div>
     {#if loadingAlerts}
       <div class="loading-state">
         <div class="loading-spinner"></div>
@@ -1664,6 +1711,25 @@
     border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+  }
+
+  .alerts-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem 0 1rem;
+    background: #fff;
+  }
+  .search-input {
+    width: 420px;
+    max-width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    outline: none;
+  }
+  .search-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   }
 
   .loading-state, .empty-state {

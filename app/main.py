@@ -658,7 +658,8 @@ class RealTimeDetector:
         
         # Additional blacklist for common Metasploit and penetration testing ports
         # These ports are commonly used during setup and should be filtered to reduce false positives
-        metasploit_ports = [4444, 8080, 8180, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090]
+        # NOTE: Removed 8080, 8180 from blacklist as they are important for Tomcat attack detection
+        metasploit_ports = [4444, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090]
         tcp_blacklist.extend(metasploit_ports)
         
         # Additional blacklist for multicast, broadcast, and local-link IPs
@@ -679,17 +680,19 @@ class RealTimeDetector:
            is_multicast(meta_info['dst_ip']) or is_broadcast(meta_info['dst_ip']) or is_local_link(meta_info['dst_ip']):
             return
         
-        # Additional filtering for LHOST setup activities
-        # Filter out common setup and discovery packets that might be generated during LHOST configuration
-        if meta_info['protocol'] == 'TCP':
-            # Filter out common setup packets (SYN, ACK, RST) with low port numbers
-            if meta_info['dst_port'] < 1024 and meta_info['src_ip'] and meta_info['dst_ip']:
-                # Skip common setup activities
-                return
+        # Note: Do NOT filter low ports (<1024). We need to capture SSH(22), FTP(21), HTTP(80), etc.
         
         # Only print for packets that will be processed
         print("Packet summary:", packet.summary())
         print("Meta info:", meta_info)
+        
+        # Debug: Log SSH traffic specifically
+        if meta_info.get('dst_port') == 22:
+            print(f"🔍 SSH traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{meta_info['dst_port']}")
+        if meta_info.get('dst_port') in [8080, 8180, 8009]:
+            print(f"🔍 Tomcat/AJP traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{meta_info['dst_port']}")
+        if meta_info.get('dst_port') in [21, 6200]:
+            print(f"🔍 FTP/Backdoor-related traffic detected: {meta_info['src_ip']} -> {meta_info['dst_ip']}:{meta_info['dst_port']}")
         
         results = []
         models_to_run = self.models if getattr(self, 'use_all_models', True) else [self.model]

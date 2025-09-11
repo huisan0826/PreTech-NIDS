@@ -178,9 +178,18 @@ class AlertManager:
                 name="Brute Force Attack",
                 description="Multiple failed login attempts detected",
                 alert_type=AlertType.BRUTE_FORCE,
-                conditions={"ports": [22, 23, 3389, 21], "repeat_count": 10},
+                conditions={"ports": [22, 23, 3389, 21], "repeat_count": 5},
                 actions=["websocket", "log", "store"],
-                time_window=10
+                time_window=5
+            ),
+            AlertRule(
+                id="ssh_brute_force_detection",
+                name="SSH Brute Force Attack",
+                description="SSH brute force attack detected on port 22",
+                alert_type=AlertType.BRUTE_FORCE,
+                conditions={"ports": [22], "repeat_count": 3},
+                actions=["websocket", "log", "store"],
+                time_window=3
             ),
             # New comprehensive rules:
             AlertRule(
@@ -425,6 +434,18 @@ class AlertManager:
                 # Also update port history even for attack traffic to enable port-scan detection
                 if source_ip and target_port:
                     self.ip_port_history[source_ip].append((target_port, get_beijing_time()))
+                    # Attach attack_type based strictly on port heuristics
+                    if not attack_type and protocol in ['TCP','UDP']:
+                        if target_port in [22]:
+                            attack_type = 'SSH Brute Force'
+                        elif target_port in [80,443,8080,8180,8009]:
+                            attack_type = 'Tomcat'
+                        elif target_port in [4444,4445,5555]:
+                            attack_type = 'Reverse Shell'
+                        elif target_port in [21,6200]:
+                            attack_type = 'Backdoor'
+                        elif protocol == 'TCP' and target_port and result.get('tcp_flags') == 'SYNONLY':
+                            attack_type = 'SYN Flood'
                 
                 # Generate alert for each matching rule
                 rules_checked = 0
@@ -847,12 +868,14 @@ class AlertManager:
     
     async def _execute_alert_actions(self, alert: Alert, actions: List[str]):
         """Execute alert actions"""
-        # Simple suppression: avoid flooding with duplicate model alerts from same source within short time
+        # Reduced suppression: only suppress identical alerts within 5 seconds (was 30s)
         # Exclude the current alert (already appended to recent_alerts upstream)
+        now = get_beijing_time()
         recent_same = [a for a in list(self.recent_alerts)[-50:]
                        if a.id != alert.id and a.source_ip == alert.source_ip
                        and a.alert_type == alert.alert_type and a.level == alert.level
-                       and a.model == alert.model]
+                       and a.model == alert.model
+                       and (now - datetime.fromisoformat(a.timestamp.replace('Z', '+00:00'))).total_seconds() < 5]
         for action in actions:
             try:
                 if action == "websocket":
