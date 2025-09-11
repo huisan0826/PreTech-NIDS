@@ -13,6 +13,7 @@
   let exportLoading = false;
   let deleteLoading = writable({});
   let showDeleteConfirm = writable(null);
+  let expandedFeatures = writable({});
   
   // Pagination and filtering
   let currentPage = 0;
@@ -445,6 +446,14 @@
     showDeleteConfirm.set(null);
   }
 
+  // Features toggle functionality
+  function toggleFeatures(reportId) {
+    expandedFeatures.update(current => ({
+      ...current,
+      [reportId]: !current[reportId]
+    }));
+  }
+
   async function deleteSelectedReport(reportId) {
     try {
       deleteLoading.update(loading => ({ ...loading, [reportId]: true }));
@@ -832,11 +841,29 @@
                       
                       {#if report.features}
                         <div class="features-section">
-                          <h5>Input Features ({report.features.length})</h5>
-                          <div class="features-preview">
-                            {report.features.slice(0, 10).join(', ')}
+                          <div class="features-header">
+                            <h5>Input Features ({report.features.length})</h5>
                             {#if report.features.length > 10}
-                              ... (+{report.features.length - 10} more)
+                              <button 
+                                class="features-toggle-button"
+                                on:click={() => toggleFeatures(report._id)}
+                              >
+                                {#if $expandedFeatures[report._id]}
+                                  Show Less
+                                {:else}
+                                  Show More
+                                {/if}
+                              </button>
+                            {/if}
+                          </div>
+                          <div class="features-preview">
+                            {#if $expandedFeatures[report._id]}
+                              {report.features.join(', ')}
+                            {:else}
+                              {report.features.slice(0, 10).join(', ')}
+                              {#if report.features.length > 10}
+                                ... (+{report.features.length - 10} more)
+                              {/if}
                             {/if}
                           </div>
                         </div>
@@ -1296,11 +1323,12 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
+    table-layout: fixed;
   }
 
   .reports-table th {
     background-color: #f9fafb;
-    padding: 1rem;
+    padding: 0.75rem 0.5rem;
     text-align: left;
     font-weight: 600;
     color: #374151;
@@ -1309,10 +1337,19 @@
   }
 
   .reports-table td {
-    padding: 1rem;
+    padding: 0.75rem 0.5rem;
     border-bottom: 1px solid #f3f4f6;
     vertical-align: middle;
   }
+
+  /* Column width specifications */
+  .reports-table th:nth-child(1), .reports-table td:nth-child(1) { width: 12%; } /* Timestamp */
+  .reports-table th:nth-child(2), .reports-table td:nth-child(2) { width: 8%; }  /* Model */
+  .reports-table th:nth-child(3), .reports-table td:nth-child(3) { width: 8%; }  /* Status */
+  .reports-table th:nth-child(4), .reports-table td:nth-child(4) { width: 10%; } /* Type */
+  .reports-table th:nth-child(5), .reports-table td:nth-child(5) { width: 18%; } /* Threat Summary */
+  .reports-table th:nth-child(6), .reports-table td:nth-child(6) { width: 12%; } /* Score/Probability */
+  .reports-table th:nth-child(7), .reports-table td:nth-child(7) { width: 16%; } /* Details */
 
   .report-row:hover {
     background-color: #f9fafb;
@@ -1321,14 +1358,17 @@
   /* Cell Styles */
   .timestamp {
     color: #6b7280;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
   }
 
   .model-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 15px;
-    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
     font-weight: 600;
     color: white;
     white-space: nowrap;
@@ -1344,10 +1384,10 @@
   .status-badge {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    gap: 0.375rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 15px;
+    font-size: 0.7rem;
     font-weight: 600;
     width: fit-content;
     white-space: nowrap;
@@ -1364,9 +1404,9 @@
   }
 
   .type-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 15px;
-    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
     font-weight: 600;
     color: white;
     white-space: nowrap;
@@ -1381,8 +1421,8 @@
   }
 
   .status-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background-color: currentColor;
   }
@@ -1391,6 +1431,10 @@
     font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
     font-weight: 600;
     color: #374151;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: unset;
   }
 
   .score-na {
@@ -1399,19 +1443,20 @@
   }
 
   .summary-cell {
-    max-width: 200px;
+    max-width: 100%;
   }
 
   .summary-text {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 500;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
+    padding: 0.25rem 0.6rem;
+    border-radius: 8px;
     display: inline-block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    line-height: 1.2;
   }
 
   .summary-text.threat {
@@ -1428,13 +1473,15 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
   }
 
   .details-button, .delete-button {
     border: none;
-    padding: 0.5rem 1rem;
+    padding: 0.35rem 0.7rem;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1442,6 +1489,7 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    flex-shrink: 0;
   }
 
   .details-button {
@@ -1456,8 +1504,8 @@
   .delete-button {
     background-color: #fee2e2;
     color: #dc2626;
-    padding: 0.5rem;
-    min-width: 36px;
+    padding: 0.35rem;
+    min-width: 34px;
     justify-content: center;
   }
 
@@ -1561,11 +1609,40 @@
     padding-top: 1rem;
   }
 
+  .features-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
   .features-section h5 {
-    margin: 0 0 0.5rem 0;
+    margin: 0;
     color: #1f2937;
     font-size: 1rem;
     font-weight: 600;
+  }
+
+  .features-toggle-button {
+    background-color: #e0e7ff;
+    color: #3730a3;
+    border: none;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .features-toggle-button:hover {
+    background-color: #c7d2fe;
+    transform: translateY(-1px);
+  }
+
+  .features-toggle-button:active {
+    transform: translateY(0);
   }
 
   .features-preview {
@@ -1880,13 +1957,13 @@
     }
 
     .reports-table {
-      min-width: 800px;
-      font-size: 0.875rem;
+      min-width: 1000px;
+      font-size: 0.8rem;
     }
 
     .reports-table th,
     .reports-table td {
-      padding: 1rem 0.75rem;
+      padding: 0.75rem 0.5rem;
     }
 
     .details-grid {
@@ -1997,8 +2074,8 @@
     }
 
     .reports-table {
-      min-width: 700px;
-      font-size: 0.75rem;
+      min-width: 900px;
+      font-size: 0.7rem;
     }
 
     .summary-text {
@@ -2009,7 +2086,7 @@
 
     .reports-table th,
     .reports-table td {
-      padding: 0.75rem 0.5rem;
+      padding: 0.5rem 0.375rem;
     }
 
     .reports-table th {
@@ -2072,8 +2149,19 @@
       font-size: 0.825rem;
     }
 
+    .features-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
     .features-section h5 {
       font-size: 0.95rem;
+    }
+
+    .features-toggle-button {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.5rem;
     }
 
     .features-preview {
@@ -2179,8 +2267,8 @@
     }
 
     .reports-table {
-      min-width: 600px;
-      font-size: 0.7rem;
+      min-width: 800px;
+      font-size: 0.65rem;
     }
 
     .summary-text {
@@ -2191,7 +2279,7 @@
 
     .reports-table th,
     .reports-table td {
-      padding: 0.5rem 0.375rem;
+      padding: 0.375rem 0.25rem;
     }
 
     .timestamp {
@@ -2230,8 +2318,19 @@
       font-size: 0.75rem;
     }
 
+    .features-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.375rem;
+    }
+
     .features-section h5 {
       font-size: 0.875rem;
+    }
+
+    .features-toggle-button {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.4rem;
     }
 
     .features-preview {
