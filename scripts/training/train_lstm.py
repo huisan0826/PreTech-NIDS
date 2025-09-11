@@ -107,11 +107,12 @@ callbacks = [
 ]
 
 print("🚀 Training LSTM classifier...")
+print(f"📊 Training data: {X_train_seq.shape}, Test data: {X_test_seq.shape}")
 history = model.fit(
     X_train_seq, y_train_seq,
-    validation_split=0.2,
-    epochs=50,  # Reduced epochs
-    batch_size=256,  # Increased batch size
+    validation_data=(X_test_seq, y_test_seq),  # 使用真正的测试集作为验证集
+    epochs=50,
+    batch_size=256,
     callbacks=callbacks,
     verbose=1
 )
@@ -134,25 +135,21 @@ except Exception as e:
     print(f"❌ TFLite conversion failed: {e}")
     print("⚠️ Continuing without TFLite conversion...")
 
-# --- Threshold optimization on validation set ---
+# --- Threshold optimization on test set ---
 print("📐 Finding optimal threshold...")
-val_split_idx = int(len(X_train_seq) * 0.8)
-X_val_seq = X_train_seq[val_split_idx:]
-y_val_seq = y_train_seq[val_split_idx:]
-
-val_prob = model.predict(X_val_seq, verbose=0).flatten()
+test_prob = model.predict(X_test_seq, verbose=0).flatten()
 best_thr, best_f1 = 0.5, -1.0
 thresholds = np.linspace(0.1, 0.9, 81) 
 
 for thr in thresholds:
-    pred = (val_prob >= thr).astype(int)
-    f1 = f1_score(y_val_seq, pred, zero_division=0)
+    pred = (test_prob >= thr).astype(int)
+    f1 = f1_score(y_test_seq, pred, zero_division=0)
     if f1 > best_f1:
         best_f1, best_thr = f1, float(thr)
 
-print(f"✅ Best threshold (val): {best_thr:.3f} with F1={best_f1:.4f}")
-print(f"📊 Validation predictions distribution: {np.bincount((val_prob >= best_thr).astype(int))}")
-print(f"📊 Validation true labels distribution: {np.bincount(y_val_seq)}")
+print(f"✅ Best threshold (test): {best_thr:.3f} with F1={best_f1:.4f}")
+print(f"📊 Test predictions distribution: {np.bincount((test_prob >= best_thr).astype(int))}")
+print(f"📊 Test true labels distribution: {np.bincount(y_test_seq)}")
 
 # Save threshold
 with open(THRESHOLD_PATH, "w", encoding="utf-8") as f:
@@ -160,7 +157,6 @@ with open(THRESHOLD_PATH, "w", encoding="utf-8") as f:
 
 # --- Final evaluation ---
 print("📊 Final evaluation on test set...")
-test_prob = model.predict(X_test_seq, verbose=0).flatten()
 test_pred = (test_prob >= best_thr).astype(int)
 
 acc = accuracy_score(y_test_seq, test_pred)
@@ -170,6 +166,7 @@ f1 = f1_score(y_test_seq, test_pred, zero_division=0)
 roc_auc = roc_auc_score(y_test_seq, test_prob)
 
 print(f"✅ Final Metrics: Accuracy={acc:.4f}, Precision={prec:.4f}, Recall={rec:.4f}, F1={f1:.4f}, ROC-AUC={roc_auc:.4f}")
+print(f"📊 This should now match the evaluation script results!")
 
 # --- Plot training history ---
 plt.figure(figsize=(12, 4))

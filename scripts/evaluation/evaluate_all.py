@@ -203,7 +203,8 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
         import joblib
         import tensorflow as tf
         from tensorflow import keras  # noqa: F401  (ensures keras available)
-    except Exception:
+    except Exception as e:
+        print(f"[{model_name.upper()}] Import error: {e}")
         return {}
 
     def paths(prefix: str):
@@ -247,9 +248,15 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
         scaler_path = os.path.join(MODELS_DIR, "lstm_scaler.pkl")
         thr = load_threshold(os.path.join(MODELS_DIR, "lstm_threshold.txt"), 0.5)
         if not (os.path.exists(model_path) and os.path.exists(scaler_path)):
+            print(f"[LSTM] Model or scaler not found: {model_path}, {scaler_path}")
             return {}
-        model = tf.keras.models.load_model(model_path)
-        scaler = joblib.load(scaler_path)
+        try:
+            model = tf.keras.models.load_model(model_path)
+            scaler = joblib.load(scaler_path)
+            print(f"[LSTM] Model loaded successfully, scaler expects {scaler.n_features_in_} features")
+        except Exception as e:
+            print(f"[LSTM] Error loading model: {e}")
+            return {}
         
         # Create sequences for LSTM classifier
         def create_sequences_lstm(X, timesteps=10):
@@ -258,17 +265,24 @@ def evaluate_autoencoder_like(X: np.ndarray, y: np.ndarray, model_name: str, sav
                 Xs.append(X[i:i+timesteps])
             return np.array(Xs)
         
-        Xs = scaler.transform(X)
-        Xseq = create_sequences_lstm(Xs, 10)
-        
-        # For sequences shorter than timesteps, pad with zeros
-        if len(X) < 10:
-            pad_width = 10 - len(X)
-            Xs_padded = np.pad(Xs, ((0, pad_width), (0, 0)), mode='constant', constant_values=0)
-            Xseq = create_sequences_lstm(Xs_padded, 10)
-        
-        prob = model.predict(Xseq, verbose=0).flatten()
-        pred = (prob >= thr).astype(int)
+        try:
+            Xs = scaler.transform(X)
+            print(f"[LSTM] Scaled data shape: {Xs.shape}")
+            Xseq = create_sequences_lstm(Xs, 10)
+            print(f"[LSTM] Sequence data shape: {Xseq.shape}")
+            
+            # For sequences shorter than timesteps, pad with zeros
+            if len(X) < 10:
+                pad_width = 10 - len(X)
+                Xs_padded = np.pad(Xs, ((0, pad_width), (0, 0)), mode='constant', constant_values=0)
+                Xseq = create_sequences_lstm(Xs_padded, 10)
+            
+            prob = model.predict(Xseq, verbose=0).flatten()
+            pred = (prob >= thr).astype(int)
+            print(f"[LSTM] Predictions shape: {pred.shape}, threshold: {thr}")
+        except Exception as e:
+            print(f"[LSTM] Error during prediction: {e}")
+            return 
         
         # Adjust predictions to match original length
         if len(pred) > len(y):
