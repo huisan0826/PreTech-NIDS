@@ -241,12 +241,14 @@ async def export_reports(
             
             # Write data
             for report in reports:
+                # Prefer friendly interface name if available
+                interface_display = report.get("interface_display") or report.get("interface", "")
                 writer.writerow([
                     report.get("timestamp", ""),
                     report.get("result", {}).get("model", ""),
                     report.get("result", {}).get("prediction", ""),
                     report.get("type", ""),
-                    report.get("interface", ""),
+                    interface_display,
                     report.get("result", {}).get("anomaly_score", ""),
                     report.get("result", {}).get("probability", ""),
                     len(report.get("features", []))

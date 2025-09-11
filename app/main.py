@@ -805,13 +805,28 @@ class RealTimeDetector:
         try:
             for result in results:
                 if result.get('prediction') == 'Attack':
+                    # Map interface name to friendly display text for reports/exports
+                    interface_display = None
+                    try:
+                        available = get_available_interfaces()
+                        for i in available:
+                            if i.get('name') == self.interface:
+                                interface_display = i.get('display')
+                                break
+                        # Fallback: infer from GUID pattern
+                        if not interface_display and isinstance(self.interface, str) and self.interface.startswith('\\Device\\NPF_'):
+                            guid = self.interface.split('_')[-1].replace('{','').replace('}','')
+                            interface_display = identify_interface_type(self.interface, guid)
+                    except Exception:
+                        pass
                     report = {
                         "timestamp": get_beijing_time_iso(),
                         "model": result.get('model', 'Unknown'),
                         "features": features,
                         "result": result,
                         "type": "real_time_detection",
-                        "interface": self.interface  # Include network interface
+                        "interface": self.interface,  # Include network interface
+                        "interface_display": interface_display
                     }
                     # Add meta info if available
                     if meta_info:
